@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 public class ToolDecoratorService {
 
     public static final String REDEPLOY_MCP_SERVER = "redeploy-mcp-server";
+
     @Autowired
     DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
     @Autowired
@@ -46,14 +47,13 @@ public class ToolDecoratorService {
     ObjectMapper objectMapper;
     @Autowired
     RedeployFunction redeployFunction;
+    @Autowired
+    McpSyncServer mcpSyncServer;
 
     @Getter
     private final Map<String, McpServerToolState> toolCallbackProviders = new  ConcurrentHashMap<>();
 
     private final Map<String, DelegateMcpSyncClient> syncClients = new ConcurrentHashMap<>();
-
-    @Autowired
-    McpSyncServer mcpSyncServer;
 
     @Data
     @AllArgsConstructor
@@ -154,6 +154,10 @@ public class ToolDecoratorService {
                         %s
                         
                         ## MCP Server Error Information
+                        
+                        This MCP server is not currently available or has no tools.
+                        Please see the error below to understand why there is not tool information for this MCP server.
+                        
                         %s
                         
                         """.formatted(t.getKey(), err));
@@ -237,6 +241,7 @@ public class ToolDecoratorService {
         }
 
         mcpSyncServer.addTool(McpToolUtils.toSyncToolSpecification(redeployToolCallbackProvider.getToolCallbacks()[0]));
+        addedRedeploy = true;
 
         toolCallbackProviders.put(
                 REDEPLOY_MCP_SERVER,
@@ -245,34 +250,60 @@ public class ToolDecoratorService {
         return toolCallbackProviders;
     }
 
-    private @NotNull StringBuilder parseErr(Map.Entry<String, ToolGatewayConfigProperties.DeployableMcpServer> t, McpServerToolState existing) {
+    private @NotNull StringBuilder parseErr(Map.Entry<String, ToolGatewayConfigProperties.DeployableMcpServer> t,
+                                            McpServerToolState existing) {
         StringBuilder err = new StringBuilder();
 
         boolean hasSyncErr = this.syncClients.containsKey(t.getKey()) && StringUtils.isNotBlank(this.syncClients.get(t.getKey()).error);
+        boolean hasDeployErr = existing != null && StringUtils.isNotBlank(existing.lastDeploy.err());
+        boolean hasMcpSyncClient = this.syncClients.containsKey(t.getKey()) && this.syncClients.get(t.getKey()).getClient() != null;
+        boolean mcpServerAvailable = false;
+
+        if (hasMcpSyncClient)
+            mcpServerAvailable = isMcpServerAvailable(t);
+
+        boolean hasMcpSyncClientConnected = hasMcpSyncClient && mcpServerAvailable;
+        boolean hasMcpSyncClientNotConnected = hasMcpSyncClient && !mcpServerAvailable;
+
         if (hasSyncErr) {
             var s = this.syncClients.get(t.getKey()).error;
             err.append("""
                           ### MCP server connection error
+                          
+                          There was an error connecting to this MCP server
+                          
                           %s
                           """)
                     .append(s);
         }
 
-        boolean hasDeployErr = existing != null && StringUtils.isNotBlank(existing.lastDeploy.err());
         if (hasDeployErr) {
             err.append("""
                           ### MCP server deployment error
+                          
+                          There was an error deploying this MCP server
+                          
                           %s
                           """)
                     .append(existing.lastDeploy.err());
         }
 
 
-        if (!hasDeployErr && !hasSyncErr && this.syncClients.containsKey(t.getKey()) && this.syncClients.get(t.getKey()).getClient() != null) {
-            log.error("Unknown connection failure - sync client added but no tools.");
+        if (!hasDeployErr && !hasSyncErr && hasMcpSyncClientConnected) {
+            log.error("Unknown failure - sync client available added but no tools.");
             err.append("""
                     ### MCP server unknown error
-                    MCP server seems to not have any tools.
+                    
+                    MCP server seems to not have any tools - was able to ping the server.
+                    """);
+        }
+
+        if (!hasDeployErr && !hasSyncErr && hasMcpSyncClientNotConnected) {
+            log.error("Unknown failure - sync client not connected but sync client existing - a bug.");
+            err.append("""
+                    ### MCP server unknown error
+                    
+                    MCP server seems to have unknown connection error - a bug - was not able to ping the server.
                     """);
         }
 
@@ -280,10 +311,20 @@ public class ToolDecoratorService {
             log.error("Unknown connection failure - sync client not added.");
             err.append("""
                     ### MCP server unknown error
-                    MCP server connection unknown connection fail.
+                    
+                    MCP server connection unknown connection fail. No MCP server accessible.
                     """);
         }
         return err;
+    }
+
+    private boolean isMcpServerAvailable(Map.Entry<String, ToolGatewayConfigProperties.DeployableMcpServer> t) {
+        try {
+            this.syncClients.get(t.getKey()).getClient().ping();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static @NotNull String performedRedeployResult(ToolModels.Redeploy i) {
