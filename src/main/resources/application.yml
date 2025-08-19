@@ -1,0 +1,27 @@
+gateway:
+  deployable-mcp-servers:
+    commit-diff-context-mcp:
+      deploy-command: ./gradlew :commit-diff-context-mcp bootJar
+      directory: /Users/hayde/IdeaProjects/drools
+  fail-on-mcp-client-init: false
+
+otel:
+  instrumentation:
+    spring-web:
+      enabled: false
+    spring-webmvc:
+      enabled: false
+    spring-webflux:
+      enabled: false
+    jdbc:
+      enabled: false
+    kafka:
+      enabled: false
+    mongo:
+      enabled: false
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+spring.ai.vectorstore.type: none
