@@ -4,7 +4,7 @@ import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 
 public interface RedeployFunction {
 
-    record RedeployDescriptor(boolean isSuccess) {
+    record RedeployDescriptor(boolean isSuccess, String err) {
 
     }
 
