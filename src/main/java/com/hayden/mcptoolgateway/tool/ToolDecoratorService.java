@@ -150,7 +150,7 @@ public class ToolDecoratorService {
                             .collect(Collectors.toCollection(ArrayList::new)));
 
 
-            return "Error performing deploy - find error log at %s"
+            return "Error performing deploy - find error log at file:%s"
                     .formatted("// TODO!!!");
         });
     }
