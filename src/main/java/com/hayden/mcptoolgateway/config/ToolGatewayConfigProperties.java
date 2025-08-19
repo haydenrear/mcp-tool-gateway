@@ -12,8 +12,7 @@ import java.util.Map;
 @Data
 public class ToolGatewayConfigProperties {
 
-    public record DeployableMcpServer(String deployCommand, Path directory) {
-
+    public record DeployableMcpServer(String name, String deployCommand, Path directory) {
     }
 
     Map<String, DeployableMcpServer> deployableMcpServers;

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
+import com.hayden.mcptoolgateway.fn.RedeployFunction;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -41,6 +42,8 @@ public class ToolDecoratorService {
     ToolGatewayConfigProperties toolGatewayConfigProperties;
     @Autowired
     ObjectMapper objectMapper;
+    @Autowired
+    RedeployFunction redeployFunction;
 
 
     @Getter
@@ -130,35 +133,25 @@ public class ToolDecoratorService {
 
     public String doRedeploy(Redeploy redeploy, ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer) {
         return this.dynamicMcpToolCallbackProvider.killClientAndThen(redeploy.deployService, () -> {
-            try {
-                this.toolCallbackProviders.remove(redeploy.deployService);
-//              TODO: in the event that this fails, add the location of the file where the error can be found
-                var p = new ProcessBuilder(redeployMcpServer.deployCommand())
-                        .directory(redeployMcpServer.directory().toFile())
-                        .redirectErrorStream(true)
-                        .start();
+            this.toolCallbackProviders.remove(redeploy.deployService);
 
-                // TODO: write res ? probably not ... this should read the
-                var res = p.waitFor();
+            var r = redeployFunction.performRedeploy(redeployMcpServer);
 
-                this.toolCallbackProviders.put(
-                        redeploy.deployService,
-                        this.dynamicMcpToolCallbackProvider.buildClient(redeploy.deployService)
-                                                           .map(m -> createSetSyncClient(m, redeploy.deployService))
-                                                           .toStream()
-                                                           .flatMap(Collection::stream)
-                                                           .collect(Collectors.toCollection(ArrayList::new)));
-
-                if (res == 0) {
-                    return performedRedeployResult(redeploy);
-                }
-
-                return "Error performing deploy - find error log at %s"
-                        .formatted("// TODO!!!");
-            } catch (InterruptedException |
-                     IOException e) {
-                return "Error performing deploy: %s".formatted(e.getMessage());
+            if (!r.isSuccess()) {
+                return performedRedeployResult(redeploy);
             }
+
+            this.toolCallbackProviders.put(
+                    redeploy.deployService,
+                    this.dynamicMcpToolCallbackProvider.buildClient(redeploy.deployService)
+                            .map(m -> createSetSyncClient(m, redeploy.deployService))
+                            .toStream()
+                            .flatMap(Collection::stream)
+                            .collect(Collectors.toCollection(ArrayList::new)));
+
+
+            return "Error performing deploy - find error log at %s"
+                    .formatted("// TODO!!!");
         });
     }
 
