@@ -85,7 +85,7 @@ public class ToolGatewayConfig {
         }, new OutputStream() {
             @Override
             public void write(int b) throws IOException {
-
+//                System.out.printf("");
             }
         });
     }

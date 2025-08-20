@@ -1,7 +1,9 @@
 gateway:
+  deployable-mcp-servers:
+    test-mcp-server:
+      name: test-mcp-server
+      deploy-command: ./gradlew :test-mcp-server bootJar
+      directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
   mcp-servers-json-location: classpath:test-mcp-servers/servers.json
+  fail-on-mcp-client-init: true
 
-
-spring.main.log-startup-info: false
-logging.level.org.springframework: error
-spring.main.banner-mode: off

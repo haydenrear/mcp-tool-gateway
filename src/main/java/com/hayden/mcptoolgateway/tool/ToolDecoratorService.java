@@ -125,7 +125,9 @@ public class ToolDecoratorService {
                 .flatMap(d -> {
                     try {
                         var m = setMcpClient(d.getKey());
-                        return Stream.of(Map.entry(d.getKey(), McpServerToolState.builder().toolCallbackProviders(m.providers).lastDeploy(m.lastDeploy).build()));
+                        return Optional.ofNullable(m)
+                                .stream()
+                                .flatMap(s -> Stream.of(Map.entry(d.getKey(), McpServerToolState.builder().toolCallbackProviders(m.providers).lastDeploy(m.lastDeploy).build())));
                     } catch (Exception e) {
                         log.error("Could not build MCP tools {} with {}.",
                                 d.getKey(), e.getMessage(), e);
@@ -197,14 +199,11 @@ public class ToolDecoratorService {
                                 if (!toolGatewayConfigProperties.getDeployableMcpServers()
                                         .containsKey(i.deployService())) {
                                     log.error("MCP server name {} was not contained in options {}.",
-                                            i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers()
-                                                    .keySet());
+                                            i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers().keySet());
                                     if (toolGatewayConfigProperties.getDeployableMcpServers().size() == 1) {
                                         ToolGatewayConfigProperties.DeployableMcpServer toRedeploy = toolGatewayConfigProperties.getDeployableMcpServers()
-                                                .entrySet()
-                                                .stream()
-                                                .findFirst()
-                                                .orElseThrow()
+                                                .entrySet().stream()
+                                                .findFirst().orElseThrow()
                                                 .getValue();
                                         log.error("Deploying only deployable MCP server with request - assuming mistake - redeploying existing {}.",
                                                 toRedeploy.name());
@@ -320,8 +319,8 @@ public class ToolDecoratorService {
 
     private boolean isMcpServerAvailable(Map.Entry<String, ToolGatewayConfigProperties.DeployableMcpServer> t) {
         try {
-            this.syncClients.get(t.getKey()).getClient().ping();
-            return true;
+            var isInit = this.syncClients.get(t.getKey()).getClient().isInitialized();
+            return isInit;
         } catch (Exception e) {
             return false;
         }
@@ -376,7 +375,7 @@ public class ToolDecoratorService {
         });
     }
 
-    private @NotNull SetSyncClientResult setMcpClient(String deployService) {
+    private SetSyncClientResult setMcpClient(String deployService) {
         return this.dynamicMcpToolCallbackProvider.buildClient(deployService)
                 .map(m -> createSetSyncClient(m, deployService))
                 .onErrorFlatMapResult(err -> Result.ok(createSetClientErr(err, deployService)))
@@ -514,7 +513,10 @@ public class ToolDecoratorService {
             return SetSyncClientResult.builder()
                     .toolsAdded(toolsAdded)
                     .toolsRemoved(toolsRemoved)
-                    .lastDeploy(removedState.lastDeploy)
+                    .lastDeploy(
+                            Optional.ofNullable(removedState)
+                                    .map(s -> s.lastDeploy)
+                                    .orElse(null))
                     .tools(tools)
                     .providers(providersCreated)
                     .build();
@@ -618,6 +620,7 @@ public class ToolDecoratorService {
                                     })
                                     .description(t.description())
                                     .inputSchema(getInputSchema(t))
+                                    .inputType(String.class)
                                     .build()))
                     .build();
         } catch (JsonProcessingException e) {
@@ -645,6 +648,8 @@ public class ToolDecoratorService {
     public record ToolCallbackDescriptor(ToolCallbackProvider provider, ToolCallback toolCallback) {}
 
     private static @NotNull HashMap<String, ToolCallbackDescriptor> toExistingToolCallbackProviders(McpServerToolState removedState) {
+        if (removedState == null)
+            return new HashMap<>();
         List<ToolCallbackProvider> removedProviders = Optional.ofNullable(removedState.toolCallbackProviders()).orElse(new ArrayList<>());
 
         var existing = new HashMap<String, ToolCallbackDescriptor>();

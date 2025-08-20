@@ -1,3 +1,12 @@
+gateway:
+  deployable-mcp-servers:
+    commit-diff-context-mcp:
+      name: commit-diff-context-mcp
+      deploy-command: ./gradlew :commit-diff-context-mcp bootjar
+      directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
+  fail-on-mcp-client-init: false
+  mcp-servers-json-location: classpath:mcp-servers/servers.json
+
 server.port: 8081
 
 otel:
