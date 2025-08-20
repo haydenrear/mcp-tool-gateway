@@ -448,8 +448,8 @@ public class ToolDecoratorService {
 
     private RedeployResult handleFailedRedeployNoRollback(ToolModels.Redeploy redeploy, RedeployFunction.RedeployDescriptor r) {
         var tc = setMcpClient.createSetClientErr(
-                new DynamicMcpToolCallbackProvider.McpError(r.err()),
                 redeploy.deployService(),
+                new DynamicMcpToolCallbackProvider.McpError(r.err()),
                 this.mcpServerToolStates.remove(redeploy.deployService()));
 
         this.mcpServerToolStates.put(

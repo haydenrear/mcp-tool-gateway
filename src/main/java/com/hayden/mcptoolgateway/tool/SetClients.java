@@ -2,6 +2,7 @@ package com.hayden.mcptoolgateway.tool;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.utilitymodule.concurrent.striped.StripedLock;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.micrometer.common.util.StringUtils;
@@ -75,15 +76,17 @@ public class SetClients {
         }
     }
 
+    @StripedLock
     ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return this.dynamicMcpToolCallbackProvider.buildClient(deployService)
                 .map(m -> createSetSyncClient(m, deployService, mcpServerToolState))
-                .onErrorFlatMapResult(err -> Result.ok(createSetClientErr(err, deployService, mcpServerToolState)))
+                .onErrorFlatMapResult(err -> Result.ok(createSetClientErr(deployService, err, mcpServerToolState)))
                 .unwrap();
     }
 
-    ToolDecoratorService.SetSyncClientResult createSetClientErr(DynamicMcpToolCallbackProvider.McpError m,
-                                                                String service,
+    @StripedLock
+    ToolDecoratorService.SetSyncClientResult createSetClientErr(String service,
+                                                                DynamicMcpToolCallbackProvider.McpError m,
                                                                 ToolDecoratorService.McpServerToolState mcpServerToolState) {
         this.syncClients.compute(service, (key, prev) -> {
             if (prev == null) {
