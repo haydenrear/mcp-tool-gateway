@@ -1,10 +1,17 @@
 gateway:
   deployable-mcp-servers:
-    commit-diff-context-mcp:
-      name: commit-diff-context-mcp
-      deploy-command: ./gradlew :commit-diff-context-mcp bootJar
-      directory: /Users/hayde/IdeaProjects/drools
+    test-mcp-server:
+      name: test-mcp-server
+      deploy-command: ./gradlew :test-mcp-server bootJar
+      directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
+#    commit-diff-context-mcp:
+#      name: commit-diff-context-mcp
+#      deploy-command: ./gradlew :commit-diff-context-mcp bootJar
+#      directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
   fail-on-mcp-client-init: false
+  mcp-servers-json-location: classpath:mcp-servers/servers.json
+
+server.port: 8081
 
 otel:
   instrumentation:
@@ -25,7 +32,18 @@ management:
     metrics:
       export:
         enabled: false
-spring.ai.vectorstore.type: none
+
 graphql-props:
   port: 8080
   url: localhost
+
+spring:
+  ai:
+    vectorstore.type: none
+    mcp:
+      server:
+        stdio: true
+        enabled: true
+  docker:
+    compose:
+      enabled: false

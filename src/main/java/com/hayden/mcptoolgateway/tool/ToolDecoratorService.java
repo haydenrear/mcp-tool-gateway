@@ -255,7 +255,7 @@ public class ToolDecoratorService {
         StringBuilder err = new StringBuilder();
 
         boolean hasSyncErr = this.syncClients.containsKey(t.getKey()) && StringUtils.isNotBlank(this.syncClients.get(t.getKey()).error);
-        boolean hasDeployErr = existing != null && StringUtils.isNotBlank(existing.lastDeploy.err());
+        boolean hasDeployErr = existing != null && existing.lastDeploy != null && StringUtils.isNotBlank(existing.lastDeploy.err());
         boolean hasMcpSyncClient = this.syncClients.containsKey(t.getKey()) && this.syncClients.get(t.getKey()).getClient() != null;
         boolean mcpServerAvailable = false;
 
@@ -451,11 +451,13 @@ public class ToolDecoratorService {
                     .lastDeploy(mcpServerToolState.lastDeploy)
                     .toolsRemoved(removed)
                     .tools(tools)
+                    .err(m.getMessage())
                     .build();
         }
 
         return SetSyncClientResult.builder()
                 .tools(tools)
+                .err(m.getMessage())
                 .build();
     }
 

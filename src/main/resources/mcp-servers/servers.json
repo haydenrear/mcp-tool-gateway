@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "test-mcp-server": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "mcp-tool-gateway/build/libs/test-mcp-server.jar"
+      ]
+    }
+  }
+}

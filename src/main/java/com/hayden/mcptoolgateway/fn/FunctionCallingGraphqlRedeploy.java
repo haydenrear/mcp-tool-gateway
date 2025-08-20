@@ -3,6 +3,7 @@ package com.hayden.mcptoolgateway.fn;
 import com.hayden.commitdiffmodel.codegen.client.ExecuteGraphQLQuery;
 import com.hayden.commitdiffmodel.codegen.types.CodeExecutionOptions;
 import com.hayden.commitdiffmodel.codegen.types.CodeExecutionResult;
+import com.hayden.commitdiffmodel.codegen.types.Error;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.graphql.client.DgsGraphQlClient;
@@ -27,6 +28,6 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
     }
 
     public RedeployDescriptor from(CodeExecutionResult result) {
-        return new RedeployDescriptor(true);
+        return new RedeployDescriptor(true, String.join(", ", result.getError().stream().map(Error::toString).toList()));
     }
 }

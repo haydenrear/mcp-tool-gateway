@@ -1,0 +1,7 @@
+gateway:
+  mcp-servers-json-location: classpath:test-mcp-servers/servers.json
+
+
+spring.main.log-startup-info: false
+logging.level.org.springframework: error
+spring.main.banner-mode: off

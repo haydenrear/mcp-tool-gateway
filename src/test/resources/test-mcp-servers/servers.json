@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "commit-diff-context-mcp": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "build/libs/test-mcp-server.jar"
+      ]
+    }
+  }
+}

@@ -17,6 +17,8 @@ public class ToolGatewayConfigProperties {
 
     Map<String, DeployableMcpServer> deployableMcpServers;
 
+    String mcpServersJsonLocation;
+
     boolean failOnMcpClientInit = false;
 
 }
