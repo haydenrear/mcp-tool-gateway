@@ -28,7 +28,6 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -346,7 +345,7 @@ public class ToolDecoratorService {
                                     .toolCallbackProviders(tc.providers)
                                     .lastDeploy(r)
                                     .build());
-                    
+
                     return RedeployResult.builder()
                             .deployErr(performedRedeployResult(redeploy))
                             .toolsRemoved(tc.toolsRemoved)
