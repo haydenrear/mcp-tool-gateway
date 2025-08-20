@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.graphql.client.DgsGraphQlClient;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 @Component
 @RequiredArgsConstructor
 public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
@@ -28,6 +30,10 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
     }
 
     public RedeployDescriptor from(CodeExecutionResult result) {
-        return new RedeployDescriptor(true, String.join(", ", result.getError().stream().map(Error::toString).toList()));
+        return Optional.ofNullable(result)
+                .map(rd -> new RedeployDescriptor(true, String.join(", ", result.getError().stream().map(Error::toString).toList())))
+                .orElseGet(() -> RedeployDescriptor.builder()
+                        .err("No code execution result provided.")
+                        .build());
     }
 }
