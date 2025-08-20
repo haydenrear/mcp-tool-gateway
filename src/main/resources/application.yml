@@ -1,5 +1,7 @@
 server.port: 8081
 logging.config: classpath:logback-mcp-tool-gateway.xml
+gateway:
+  artifact-cache: file:.cache
 
 
 otel:

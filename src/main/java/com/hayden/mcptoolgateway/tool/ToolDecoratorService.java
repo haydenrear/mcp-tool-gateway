@@ -6,7 +6,6 @@ import com.google.common.collect.Lists;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.fn.RedeployFunction;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
-import com.hayden.utilitymodule.result.Result;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -21,13 +20,14 @@ import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.tool.StaticToolCallbackProvider;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.tool.execution.ToolCallResultConverter;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
-import java.lang.reflect.Type;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -49,23 +49,35 @@ public class ToolDecoratorService {
     @Autowired
     RedeployFunction redeployFunction;
     @Autowired
-    McpSyncServer mcpSyncServer;
+    McpSyncServerDelegate mcpSyncServer;
+    @Autowired
+    SetClients setMcpClient;
 
-    private final Map<String, McpServerToolState> toolCallbackProviders = new  ConcurrentHashMap<>();
+    private final Map<String, McpServerToolState> mcpServerToolStates = new  ConcurrentHashMap<>();
 
-    private final Map<String, DelegateMcpSyncClient> syncClients = new ConcurrentHashMap<>();
 
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
     static class DelegateMcpSyncClient {
-        @Delegate
         McpSyncClient client;
+
+        public synchronized McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
+            return client.callTool(callToolRequest);
+        }
 
         /**
          * TODO: last error to return - or last error log file
          */
         String error;
+
+        public synchronized void setClient(McpSyncClient client) {
+            this.client = client;
+        }
+
+        public synchronized void setError(String error) {
+            this.error = error;
+        }
 
         public DelegateMcpSyncClient(McpSyncClient client) {
             this.client = client;
@@ -91,7 +103,8 @@ public class ToolDecoratorService {
             Set<String> toolsAdded,
             Set<String> tools,
             String deployErr,
-            String mcpConnectErr
+            String mcpConnectErr,
+            boolean didRollback
     ) {}
 
     @Builder(toBuilder = true)
@@ -100,18 +113,24 @@ public class ToolDecoratorService {
                                Set<String> toolsRemoved,
                                String err,
                                List<ToolCallbackProvider> providers,
-                               RedeployFunction.RedeployDescriptor lastDeploy) { }
+                               RedeployFunction.RedeployDescriptor lastDeploy) {
+        boolean wasSuccessful() {
+            return StringUtils.isBlank(err);
+        }
+    }
 
 
     private final ReentrantReadWriteLock  lock = new ReentrantReadWriteLock();
 
-    private volatile boolean addedRedeploy = false;
+    private volatile boolean didInitialize = false;
 
     @PostConstruct
     public void init() {
         try {
             lock.writeLock().lock();
             buildTools();
+            didInitialize = true;
+            mcpSyncServer.notifyToolsListChanged();
         } finally {
             lock.writeLock().unlock();
         }
@@ -124,7 +143,7 @@ public class ToolDecoratorService {
                 .stream()
                 .flatMap(d -> {
                     try {
-                        var m = setMcpClient(d.getKey());
+                        var m = setMcpClient.setMcpClient(d.getKey(), McpServerToolState.builder().build());
                         return Optional.ofNullable(m)
                                 .stream()
                                 .flatMap(s -> Stream.of(Map.entry(d.getKey(), McpServerToolState.builder().toolCallbackProviders(m.providers).lastDeploy(m.lastDeploy).build())));
@@ -139,17 +158,27 @@ public class ToolDecoratorService {
                 })
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        this.toolCallbackProviders.putAll(addRedeployTools(decoratedTools));
+        this.mcpServerToolStates.putAll(decoratedTools);
+        this.mcpServerToolStates.put(REDEPLOY_MCP_SERVER, getRedeploy(decoratedTools));
     }
 
 
-    private Map<String, McpServerToolState> addRedeployTools(Map<String, McpServerToolState> toolCallbackProviders) {
+    private McpServerToolState getRedeploy(Map<String, McpServerToolState> newMcpServerState) {
         StringBuilder descriptions = new StringBuilder();
 
         for (var t : this.toolGatewayConfigProperties.getDeployableMcpServers().entrySet()) {
-            if (!toolCallbackProviders.containsKey(t.getKey()) || CollectionUtils.isEmpty(toolCallbackProviders.get(t.getKey()).toolCallbackProviders)) {
-                var existing = toolCallbackProviders.get(t.getKey());
-                StringBuilder err = parseErr(t, existing);
+            if (!newMcpServerState.containsKey(t.getKey())) {
+                descriptions.append("""
+                        ## MCP Server Name
+                        %s
+                        
+                        ## MCP Server Error Information
+                        
+                        This MCP server is not currently available or has no tools.
+                        """.formatted(t.getKey()));
+            }
+            if (CollectionUtils.isEmpty(newMcpServerState.get(t.getKey()).toolCallbackProviders)) {
+                StringBuilder err = parseErr(newMcpServerState.get(t.getKey()), t.getKey());
 
                 descriptions.append("""
                         ## MCP Server Name
@@ -161,32 +190,26 @@ public class ToolDecoratorService {
                         Please see the error below to understand why there is not tool information for this MCP server.
                         
                         %s
-                        
                         """.formatted(t.getKey(), err));
             }
         }
 
-        for (var t : toolCallbackProviders.entrySet())  {
-            var tools = StreamUtil.toStream(t.getValue().toolCallbackProviders)
-                    .flatMap(tcp -> Arrays.stream(tcp.getToolCallbacks()))
-                    .map(tc -> {
-                        var td = """
-                                #### MCP Server Tool Name
-                                %s
-                                
-                                #### MCP Server Tool Description
-                                %s
-                                """.formatted(tc.getToolDefinition().name(), tc.getToolDefinition().description());
-                        return td;
-                    })
-                    .collect(Collectors.joining(System.lineSeparator()));
+        for (var t : newMcpServerState.entrySet())  {
+            String tools = StreamUtil.toStream(t.getValue().toolCallbackProviders)
+                        .flatMap(tcp -> Arrays.stream(tcp.getToolCallbacks()))
+                        .map(tc -> {
+                            var td = """
+                                - %s
+                                """.formatted(tc.getToolDefinition().name());
+                            return td;
+                        })
+                        .collect(Collectors.joining(System.lineSeparator()));
 
             descriptions.append("""
                     ## MCP Server Name
                     %s
                     
                     ### MCP Server Tools
-                    
                     %s
                     """.formatted(t.getKey(), tools));
         }
@@ -207,8 +230,7 @@ public class ToolDecoratorService {
                                                 .getValue();
                                         log.error("Deploying only deployable MCP server with request - assuming mistake - redeploying existing {}.",
                                                 toRedeploy.name());
-                                        return doRedeploy(i,
-                                                toRedeploy);
+                                        return doRedeploy(i, toRedeploy);
                                     } else {
                                         return RedeployResult.builder()
                                                 .deployErr("%s was not contained in set of deployable MCP servers %s - please update."
@@ -216,8 +238,7 @@ public class ToolDecoratorService {
                                                 .build();
                                     }
                                 } else {
-                                    return doRedeploy(i, toolGatewayConfigProperties.getDeployableMcpServers()
-                                            .get(i.deployService()));
+                                    return doRedeploy(i, toolGatewayConfigProperties.getDeployableMcpServers().get(i.deployService()));
                                 }
                             } finally {
                                 lock.writeLock().unlock();
@@ -226,7 +247,10 @@ public class ToolDecoratorService {
                         .description("""
                                 # Redeploy Tool Description
                                 
-                                This tool provides the ability to redeploy the underlying MCP servers and the underlying tools. Errors will be propagated.
+                                This tool provides the ability to redeploy the underlying MCP servers and the underlying tools.
+                                Errors will be provided below so that you can make changes and redeploy again.
+                                If there is an issue with redeploy and the tool is able, then it will be rolled back to the previous version
+                                and the error will be provided below.
                                 
                                 # Underlying MCP Servers and Tools that can be Redeployed
                                 
@@ -243,38 +267,31 @@ public class ToolDecoratorService {
                         })
                         .build());
 
-        if (addedRedeploy) {
+        if (didInitialize) {
             mcpSyncServer.removeTool(REDEPLOY_MCP_SERVER);
         }
 
         mcpSyncServer.addTool(McpToolUtils.toSyncToolSpecification(redeployToolCallbackProvider.getToolCallbacks()[0]));
-        mcpSyncServer.notifyToolsListChanged();
-        addedRedeploy = true;
 
-        toolCallbackProviders.put(
-                REDEPLOY_MCP_SERVER,
-                McpServerToolState.builder().toolCallbackProviders(Lists.newArrayList(redeployToolCallbackProvider)).build());
-
-        return toolCallbackProviders;
+        return McpServerToolState.builder().toolCallbackProviders(Lists.newArrayList(redeployToolCallbackProvider)).build();
     }
 
-    private @NotNull StringBuilder parseErr(Map.Entry<String, ToolGatewayConfigProperties.DeployableMcpServer> t,
-                                            McpServerToolState existing) {
+    private @NotNull StringBuilder parseErr(McpServerToolState existing, String service) {
         StringBuilder err = new StringBuilder();
 
-        boolean hasSyncErr = this.syncClients.containsKey(t.getKey()) && StringUtils.isNotBlank(this.syncClients.get(t.getKey()).error);
         boolean hasDeployErr = existing != null && existing.lastDeploy != null && StringUtils.isNotBlank(existing.lastDeploy.err());
-        boolean hasMcpSyncClient = this.syncClients.containsKey(t.getKey()) && this.syncClients.get(t.getKey()).getClient() != null;
+        boolean hasSyncErr = setMcpClient.clientHasError(service);
+        boolean hasMcpSyncClient = setMcpClient.hasClient(service);
         boolean mcpServerAvailable = false;
 
         if (hasMcpSyncClient)
-            mcpServerAvailable = isMcpServerAvailable(t);
+            mcpServerAvailable = setMcpClient.isMcpServerAvailable(service);
 
         boolean hasMcpSyncClientConnected = hasMcpSyncClient && mcpServerAvailable;
         boolean hasMcpSyncClientNotConnected = hasMcpSyncClient && !mcpServerAvailable;
 
         if (hasSyncErr) {
-            var s = this.syncClients.get(t.getKey()).error;
+            var s = setMcpClient.getError(service);
             err.append("""
                           ### MCP server connection error
                           
@@ -315,7 +332,7 @@ public class ToolDecoratorService {
                     """);
         }
 
-        if (!hasDeployErr && !hasSyncErr && !this.syncClients.containsKey(t.getKey())) {
+        if (!hasDeployErr && !hasSyncErr && setMcpClient.noClientKey(service)) {
             log.error("Unknown connection failure - sync client not added.");
             err.append("""
                     ### MCP server unknown error
@@ -326,79 +343,154 @@ public class ToolDecoratorService {
         return err;
     }
 
-    private boolean isMcpServerAvailable(Map.Entry<String, ToolGatewayConfigProperties.DeployableMcpServer> t) {
-        try {
-            var isInit = this.syncClients.get(t.getKey()).getClient().isInitialized();
-            return isInit;
-        } catch (Exception e) {
-            return false;
-        }
+    private static @NotNull String redeployFailedErr(ToolModels.Redeploy i) {
+        return "Error performing redeploy of %s.".formatted(i.deployService());
     }
 
-    private static @NotNull String performedRedeployResult(ToolModels.Redeploy i) {
-        return "performed redeploy of %s.".formatted(i.deployService());
+    private static @NotNull String performedRedeployResultRollback(ToolModels.Redeploy i) {
+        return "Tried to redeploy %s, redeploy failed and rolled back to previous version.".formatted(i.deployService());
     }
 
 
     private RedeployResult doRedeploy(ToolModels.Redeploy redeploy, ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer) {
-        return this.dynamicMcpToolCallbackProvider.killClientAndThen(redeploy.deployService(), () -> {
+        var res = this.dynamicMcpToolCallbackProvider.killClientAndThen(redeploy.deployService(), () -> {
             try {
                 lock.writeLock().lock();
+                var d = this.toolGatewayConfigProperties.getDeployableMcpServers().get(redeploy.deployService());
+
+                boolean doRollback = prepareRollback(d);
+
                 var r = redeployFunction.performRedeploy(redeployMcpServer);
 
                 if (!r.isSuccess()) {
-                    log.debug("Failed to perform redeploy {}.", r);
-                    var tc = createSetClientErr(new DynamicMcpToolCallbackProvider.McpError(r.err()), redeploy.deployService());
-                    this.toolCallbackProviders.put(
-                            redeploy.deployService(),
-                            McpServerToolState.builder()
-                                    .toolCallbackProviders(tc.providers)
-                                    .lastDeploy(r)
-                                    .build());
+                    log.debug("Failed to perform redeploy {} - copying old artifact and restarting.", r);
+                    if (doRollback) {
+                        return rollback(redeploy, d, r);
+                    }
 
-                    return RedeployResult.builder()
-                            .deployErr(performedRedeployResult(redeploy))
-                            .toolsRemoved(tc.toolsRemoved)
-                            .toolsAdded(tc.toolsAdded)
-                            .tools(tc.tools)
-                            .build();
+                    return handleFailedRedeployNoRollback(redeploy, r);
                 }
 
-                SetSyncClientResult setSyncClientResult = setMcpClient(redeploy.deployService());
-
-                McpServerToolState built = McpServerToolState.builder()
-                        .toolCallbackProviders(setSyncClientResult.providers)
-                        .lastDeploy(setSyncClientResult.lastDeploy)
-                        .build();
-
-                this.toolCallbackProviders.put(redeploy.deployService(), built);
-
-                addRedeployTools(this.toolCallbackProviders);
-
-                mcpSyncServer.notifyToolsListChanged();
-
-                return handleConnectMcpError(redeploy, r, setSyncClientResult);
+                return handleDidRedeployUpdateToolCallbackProviders(redeploy, r);
             } finally {
                 lock.writeLock().unlock();
             }
         });
+
+        if (!res.didRollback)
+            mcpSyncServer.notifyToolsListChanged();
+
+        return res;
     }
 
-    private SetSyncClientResult setMcpClient(String deployService) {
-        return this.dynamicMcpToolCallbackProvider.buildClient(deployService)
-                .map(m -> createSetSyncClient(m, deployService))
-                .onErrorFlatMapResult(err -> Result.ok(createSetClientErr(err, deployService)))
-                .unwrap();
+    private RedeployResult rollback(ToolModels.Redeploy redeploy,
+                                    ToolGatewayConfigProperties.DeployableMcpServer d,
+                                    RedeployFunction.RedeployDescriptor r) {
+        try {
+            if (tryRollback(redeploy, d, r)) {
+                return handleDidRedeployUpdateToolCallbackProviders(redeploy, r)
+                        .toBuilder()
+                        .deployErr(performedRedeployResultRollback(redeploy))
+                        .didRollback(true)
+                        .build();
+            } else {
+                RedeployResult redeployResult = handleFailedRedeployNoRollback(redeploy, r);
+                return redeployResult.toBuilder()
+                        .deployErr("Deploy err: %s - tried to rollback but failed with unknown error."
+                                .formatted(redeployResult.deployErr))
+                        .build();
+            }
+        } catch (IOException e) {
+            log.error("Failed to copy MCP server artifact back from cache - failed to rollback to previous version.");
+            RedeployResult redeployResult = handleFailedRedeployNoRollback(redeploy, r);
+            return redeployResult.toBuilder()
+                    .deployErr("Deploy err: %s - tried to rollback but failed with err: %s"
+                            .formatted(redeployResult.deployErr, e.getMessage()))
+                    .build();
+        }
     }
 
-    private @NotNull RedeployResult handleConnectMcpError(ToolModels.Redeploy redeploy, 
-                                                          RedeployFunction.RedeployDescriptor r, 
+    private boolean prepareRollback(ToolGatewayConfigProperties.DeployableMcpServer d) {
+        boolean doRollback = false;
+
+        if (d.binary().toFile().exists()) {
+            try {
+                Files.copy(
+                        d.binary(),
+                        toolGatewayConfigProperties.getArtifactCache().resolve(d.binary().toFile().getName()),
+                        StandardCopyOption.REPLACE_EXISTING);
+                doRollback = true;
+            } catch (IOException e) {
+                log.error("Failed to copy MCP server artifact to cache.");
+            }
+        }
+        return doRollback;
+    }
+
+    private boolean tryRollback(ToolModels.Redeploy redeploy, ToolGatewayConfigProperties.DeployableMcpServer d, RedeployFunction.RedeployDescriptor r) throws IOException {
+        Files.copy(
+                toolGatewayConfigProperties.getArtifactCache().resolve(d.binary().toFile().getName()),
+                d.binary(),
+                StandardCopyOption.REPLACE_EXISTING);
+
+        var toSet = setMcpClient.setMcpClient(redeploy.deployService(), this.mcpServerToolStates.get(redeploy.deployService()));
+
+        if (toSet.wasSuccessful() && setMcpClient.clientInitialized(redeploy.deployService())) {
+            this.mcpServerToolStates.put(redeploy.deployService(), McpServerToolState.builder()
+                            .toolCallbackProviders(toSet.providers)
+                            .lastDeploy(r)
+                            .build());
+
+            return true;
+        }
+        return false;
+    }
+
+    private RedeployResult handleFailedRedeployNoRollback(ToolModels.Redeploy redeploy, RedeployFunction.RedeployDescriptor r) {
+        var tc = setMcpClient.createSetClientErr(
+                new DynamicMcpToolCallbackProvider.McpError(r.err()),
+                redeploy.deployService(),
+                this.mcpServerToolStates.remove(redeploy.deployService()));
+
+        this.mcpServerToolStates.put(
+                redeploy.deployService(),
+                McpServerToolState.builder()
+                        .toolCallbackProviders(tc.providers)
+                        .lastDeploy(r)
+                        .build());
+
+        return RedeployResult.builder()
+                .deployErr(redeployFailedErr(redeploy))
+                .toolsRemoved(tc.toolsRemoved)
+                .toolsAdded(tc.toolsAdded)
+                .tools(tc.tools)
+                .build();
+    }
+
+    private @NotNull RedeployResult handleDidRedeployUpdateToolCallbackProviders(ToolModels.Redeploy redeploy, RedeployFunction.RedeployDescriptor r) {
+        SetSyncClientResult setSyncClientResult = setMcpClient.setMcpClient(redeploy.deployService(), this.mcpServerToolStates.remove(redeploy.deployService()));
+
+        McpServerToolState built = McpServerToolState.builder()
+                .toolCallbackProviders(setSyncClientResult.providers)
+                .lastDeploy(setSyncClientResult.lastDeploy)
+                .build();
+
+        this.mcpServerToolStates.put(redeploy.deployService(), built);
+
+        this.mcpServerToolStates.put(REDEPLOY_MCP_SERVER, getRedeploy(this.mcpServerToolStates));
+
+        return handleConnectMcpError(redeploy, r, setSyncClientResult);
+    }
+
+
+    private @NotNull RedeployResult handleConnectMcpError(ToolModels.Redeploy redeploy,
+                                                          RedeployFunction.RedeployDescriptor r,
                                                           SetSyncClientResult setSyncClientResult) {
-        if (!this.syncClients.containsKey(redeploy.deployService())) {
+        if (setMcpClient.noClientKey(redeploy.deployService())) {
             return toRedeployRes(r, setSyncClientResult, "MCP client was not found for %s"
                     .formatted(redeploy.deployService()));
-        } else if (this.syncClients.get(redeploy.deployService()).getClient() == null) {
-            var err = this.syncClients.get(redeploy.deployService()).getError();
+        } else if (setMcpClient.noMcpClient(redeploy.deployService())) {
+            var err = setMcpClient.getError(redeploy.deployService());
             if (err != null) {
                 return toRedeployRes(r, setSyncClientResult,
                         "Error connecting to MCP client for %s after redeploy: %s".formatted(redeploy, err));
@@ -424,260 +516,7 @@ public class ToolDecoratorService {
     }
 
 
-    private SetSyncClientResult createSetClientErr(DynamicMcpToolCallbackProvider.McpError m, String service) {
-        this.syncClients.compute(service, (key, prev) -> {
-            if (prev == null) {
-                return new DelegateMcpSyncClient(m.getMessage());
-            }
-
-            prev.setClient(null);
-            prev.setError(m.getMessage());
-            return prev;
-        });
-
-        Set<String> removed = new HashSet<>();
-        Set<String> tools = new HashSet<>();
-
-        if (containsToolCallbackProviders(service)) {
-            McpServerToolState mcpServerToolState = this.toolCallbackProviders.remove(service);
-            for (var tcp : mcpServerToolState.toolCallbackProviders()) {
-                for (var tc : tcp.getToolCallbacks()) {
-                    mcpSyncServer.removeTool(tc.getToolDefinition().name());
-                    removed.add(tc.getToolDefinition().name());
-                }
-            }
-
-            this.toolCallbackProviders.put(
-                    service,
-                    mcpServerToolState
-                            .toBuilder()
-                            .toolCallbackProviders(null)
-                            .lastDeploy(mcpServerToolState.lastDeploy)
-                            .build());
-
-            return SetSyncClientResult.builder()
-                    .lastDeploy(mcpServerToolState.lastDeploy)
-                    .toolsRemoved(removed)
-                    .tools(tools)
-                    .err(m.getMessage())
-                    .build();
-        }
-
-        return SetSyncClientResult.builder()
-                .tools(tools)
-                .err(m.getMessage())
-                .build();
-    }
-
-
-    private @NotNull SetSyncClientResult createSetSyncClient(McpSyncClient m, String deployService) {
-
-        var mcpClient = this.syncClients.compute(deployService, (key, prev) -> {
-            if (prev == null) {
-                return new DelegateMcpSyncClient(m);
-            }
-
-            prev.setClient(m);
-            prev.setError(null);
-            return prev;
-        });
-
-        if (containsToolCallbackProviders(deployService)) {
-            return updateExisting(m, deployService, mcpClient);
-        } else {
-            return createNew(m, deployService, mcpClient);
-        }
-    }
-
-    private SetSyncClientResult createNew(McpSyncClient m, String deployService, DelegateMcpSyncClient mcpClient) {
-        McpServerToolState removedState = this.toolCallbackProviders.remove(deployService);
-        Map<String, ToolCallbackDescriptor> existing = toExistingToolCallbackProviders(removedState);
-
-        if (!existing.isEmpty())
-            log.error("Found exising tool callback providers! Impossible!");
-
-        try {
-            McpSchema.ListToolsResult listToolsResult = m.listTools();
-
-            List<ToolCallbackProvider> providersCreated = new ArrayList<>();
-            Set<String> toolsAdded = new HashSet<>();
-            Set<String> toolsRemoved = new HashSet<>();
-            Set<String> tools = new HashSet<>();
-            Set<String> toolErrors = new HashSet<>();
-
-            var t = toToolCallbackProvider(listToolsResult, mcpClient, deployService);
-            for (var tcp : t) {
-                if (tcp.provider == null) {
-//                  there is no existing!
-                    addToErr(tcp, toolErrors);
-                } else {
-                    Arrays.stream(tcp.provider.getToolCallbacks())
-                            .forEach(tc -> mcpSyncServer.addTool(McpToolUtils.toSyncToolSpecification(tc)));
-                    toolsAdded.add(tcp.toolName.name());
-                    tools.add(tcp.toolName.name());
-                    providersCreated.add(tcp.provider);
-                }
-            }
-
-            return SetSyncClientResult.builder()
-                    .toolsAdded(toolsAdded)
-                    .toolsRemoved(toolsRemoved)
-                    .lastDeploy(
-                            Optional.ofNullable(removedState)
-                                    .map(s -> s.lastDeploy)
-                                    .orElse(null))
-                    .tools(tools)
-                    .providers(providersCreated)
-                    .build();
-        } catch (Exception e) {
-            return parseToolExceptionFail(e, mcpClient, existing);
-        }
-    }
-
-    private SetSyncClientResult updateExisting(McpSyncClient m, String deployService, DelegateMcpSyncClient mcpClient) {
-//      TODO: on MCP connection fail or createToolCallbackProvider fail, then keep the previous tool but update
-//       description so that it shows error unavailable with the particular error.
-        McpServerToolState removedState = this.toolCallbackProviders.remove(deployService);
-        Map<String, ToolCallbackDescriptor> existing = toExistingToolCallbackProviders(removedState);
-
-        try {
-            McpSchema.ListToolsResult listToolsResult = m.listTools();
-
-            List<ToolCallbackProvider> providersCreated = new ArrayList<>();
-            Set<String>  toolsAdded = new HashSet<>();
-            Set<String>  toolsRemoved = new HashSet<>();
-            Set<String>  tools = new HashSet<>();
-            Set<String> toolErrors = new HashSet<>();
-
-
-            var newTools = listToolsResult.tools().stream()
-                    .map(t -> Map.entry(t.name(), t))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-            for (var n : newTools.entrySet()) {
-                var p = createToolCallbackProvider(mcpClient, deployService, n.getValue());
-                Optional.ofNullable(p.provider)
-                        .ifPresentOrElse(tcp -> {
-                            toolsAdded.add(p.toolName.name());
-                            tools.add(p.toolName.name());
-                            providersCreated.add(tcp);
-                            Arrays.stream(tcp.getToolCallbacks())
-                                    .forEach(tc -> mcpSyncServer.addTool(McpToolUtils.toSyncToolSpecification(tc)));
-                        }, () -> {
-                            log.error("Unable to create tool callback provider for {}.", n.getKey());
-                            addToErr(p, toolErrors);
-                        });
-            }
-
-            for (var n : existing.entrySet()) {
-                if (!newTools.containsKey(n.getKey())) {
-                    log.info("Removing tool {}", n.getKey());
-                    mcpSyncServer.removeTool(n.getKey());
-                    toolsRemoved.add(n.getKey());
-                }
-            }
-
-            return SetSyncClientResult.builder()
-                    .toolsAdded(toolsAdded)
-                    .toolsRemoved(toolsRemoved)
-                    .tools(tools)
-                    .lastDeploy(removedState.lastDeploy)
-                    .providers(providersCreated)
-                    .build();
-        } catch (Exception e) {
-            return parseToolExceptionFail(e, mcpClient, existing);
-        }
-    }
-
-    private boolean containsToolCallbackProviders(String deployService) {
-        return this.toolCallbackProviders.containsKey(deployService)
-                && !CollectionUtils.isEmpty(this.toolCallbackProviders.get(deployService).toolCallbackProviders);
-    }
-
-
-    private List<CreateToolCallbackProviderResult> toToolCallbackProvider(McpSchema.ListToolsResult listToolsResult,
-                                                                          DelegateMcpSyncClient mcpSyncClient,
-                                                                          String service) {
-        return listToolsResult.tools().stream()
-                .map(t -> createToolCallbackProvider(mcpSyncClient, service, t))
-                .collect(Collectors.toCollection(ArrayList::new));
-    }
-
-    private @NotNull CreateToolCallbackProviderResult createToolCallbackProvider(DelegateMcpSyncClient mcpSyncClient,
-                                                                                 String service, McpSchema.Tool t) {
-        try {
-            return CreateToolCallbackProviderResult.builder()
-                    .toolName(t)
-                    .provider(new StaticToolCallbackProvider(
-                            FunctionToolCallback
-                                    .builder(t.name(), (i, o) -> {
-                                        try {
-                                            lock.readLock().lock();
-                                            if (mcpSyncClient.client == null) {
-                                                var last = this.toolCallbackProviders.get(service).lastDeploy();
-                                                return "Attempted to call tool %s with MCP client err %s and deploy err %s."
-                                                        .formatted(t.name(), mcpSyncClient.error, last);
-                                            }
-                                            var tc = objectMapper.writeValueAsString(i);
-                                            return mcpSyncClient.callTool(new McpSchema.CallToolRequest(t.name(), tc));
-                                        } catch (JsonProcessingException e) {
-                                            log.error("Error performing tool call {}", e.getMessage(), e);
-                                            return "Could not process JSON result %s from tool %s with err %s."
-                                                    .formatted(String.valueOf(i), t.name(), e.getMessage());
-                                        } finally {
-                                            lock.readLock().unlock();
-                                        }
-                                    })
-                                    .description(t.description())
-                                    .inputSchema(getInputSchema(t))
-                                    .inputType(String.class)
-                                    .build()))
-                    .build();
-        } catch (JsonProcessingException e) {
-            log.error("Error resolving  tool callback provider for tools {}", t.name(), e);
-            return CreateToolCallbackProviderResult.builder()
-                    .e(e)
-                    .build();
-        }
-    }
-
-    private String getInputSchema(McpSchema.Tool t) throws JsonProcessingException {
-        return objectMapper.writeValueAsString(t.inputSchema());
-    }
-
-
-    private static SetSyncClientResult parseToolExceptionFail(Exception e, DelegateMcpSyncClient mcpClient, Map<String, ToolCallbackDescriptor> existing) {
-        log.error("Error when attempting to retrieve tools: {}", e.getMessage(), e);
-        mcpClient.setError(e.getMessage());
-        return SetSyncClientResult.builder()
-                .toolsRemoved(existing.keySet())
-                .err(e.getMessage())
-                .build();
-    }
 
     public record ToolCallbackDescriptor(ToolCallbackProvider provider, ToolCallback toolCallback) {}
 
-    private static @NotNull HashMap<String, ToolCallbackDescriptor> toExistingToolCallbackProviders(McpServerToolState removedState) {
-        if (removedState == null)
-            return new HashMap<>();
-        List<ToolCallbackProvider> removedProviders = Optional.ofNullable(removedState.toolCallbackProviders()).orElse(new ArrayList<>());
-
-        var existing = new HashMap<String, ToolCallbackDescriptor>();
-
-        for (int i =0; i < removedProviders.size(); i++) {
-            var provider = removedProviders.get(i);
-            for (ToolCallback toolCallback : provider.getToolCallbacks()) {
-                existing.put(toolCallback.getToolDefinition().name(), new ToolCallbackDescriptor(provider, toolCallback));
-            }
-        }
-        return existing;
-    }
-
-    private static void addToErr(CreateToolCallbackProviderResult p, Set<String> toolErrors) {
-        if (p.e == null) {
-            toolErrors.add("Unknown error creating tool callback for %s".formatted(p.toolName.name()));
-        } else {
-            toolErrors.add("Error creating tool callback for %s: %s".formatted(p.toolName.name(), p.e.getMessage()));
-        }
-    }
 }
