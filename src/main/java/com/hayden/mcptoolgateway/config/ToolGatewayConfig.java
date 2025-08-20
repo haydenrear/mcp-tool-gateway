@@ -78,6 +78,7 @@ public class ToolGatewayConfig {
             @SneakyThrows
             @Override
             public int read() throws IOException {
+//                Otherwise it reads a null line and immediately fails - not needed when actually reading from stdout.
                 Thread.sleep(1000 * 1000 * 1000);
                 return -1;
             }
