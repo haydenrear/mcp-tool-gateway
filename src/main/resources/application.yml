@@ -1,4 +1,6 @@
 server.port: 8081
+logging.config: classpath:logback.xml
+
 
 otel:
   instrumentation:
@@ -25,12 +27,20 @@ graphql-props:
   url: localhost
 
 spring:
+  main:
+    banner-mode: off
   ai:
     vectorstore.type: none
     mcp:
       server:
         stdio: true
         enabled: true
+        type: sync
+        name: "mcp-tool-gateway"
+        version: 1.0.0
+
   docker:
     compose:
       enabled: false
+
+

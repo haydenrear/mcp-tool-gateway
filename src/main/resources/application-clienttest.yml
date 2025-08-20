@@ -1,0 +1,9 @@
+gateway:
+  deployable-mcp-servers:
+    test-mcp-server:
+      name: test-mcp-server
+      deploy-command: ./gradlew :test-mcp-server bootJar
+      directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
+  mcp-servers-json-location: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/src/main/resources/mcp-servers/servers-inttest.json
+server.port: 8081
+logging.config: classpath:logback-tool-gateway.xml

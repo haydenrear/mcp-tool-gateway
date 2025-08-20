@@ -4,7 +4,7 @@
       "command": "java",
       "args": [
         "-jar",
-        "/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/build/libs/test-mcp-server.jar"
+        "mcp-tool-gateway/build/libs/test-mcp-server.jar"
       ]
     }
   }

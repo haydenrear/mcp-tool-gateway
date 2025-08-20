@@ -1,28 +1,35 @@
 package com.hayden.mcptoolgateway.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.utilitymodule.ByteUtility;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import io.modelcontextprotocol.spec.McpClientTransport;
+import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpServerSession;
 import lombok.SneakyThrows;
+import org.apache.commons.compress.utils.ByteUtils;
 import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
 import org.springframework.ai.mcp.client.autoconfigure.configurer.McpSyncClientConfigurer;
 import org.springframework.ai.mcp.client.autoconfigure.properties.McpStdioClientProperties;
 import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.*;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import reactor.core.publisher.Mono;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -71,21 +78,16 @@ public class ToolGatewayConfig {
                 .toList();
     }
 
+    @SneakyThrows
     @Bean
-    @Profile("test")
-    public StdioServerTransportProvider transportProvider() {
-        return new StdioServerTransportProvider(new ObjectMapper(), new InputStream() {
-            @SneakyThrows
+    @Profile({"test"})
+    public StdioServerTransportProvider transportProvider(ObjectMapper objectMapper,
+                                                          WritableInput writableInput) {
+
+        return new StdioServerTransportProvider(objectMapper, writableInput.input(), new OutputStream() {
             @Override
-            public int read() throws IOException {
-//                Otherwise it reads a null line and immediately fails - not needed when actually reading from stdout.
-                Thread.sleep(1000 * 1000 * 1000);
-                return -1;
-            }
-        }, new OutputStream() {
-            @Override
-            public void write(int b) throws IOException {
-//                System.out.printf("");
+            public void write(int b) {
+                System.out.print((char) b);
             }
         });
     }

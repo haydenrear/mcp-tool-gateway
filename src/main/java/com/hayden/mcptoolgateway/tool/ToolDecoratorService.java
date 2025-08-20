@@ -21,11 +21,13 @@ import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.tool.StaticToolCallbackProvider;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.ai.tool.execution.ToolCallResultConverter;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
+import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -231,6 +233,14 @@ public class ToolDecoratorService {
                                 %s
                                 """.formatted(descriptions.toString()))
                         .inputType(ToolModels.Redeploy.class)
+                        .toolCallResultConverter((result, returnType) -> {
+                            try {
+                                return objectMapper.writeValueAsString(result);
+                            } catch (JsonProcessingException e) {
+                                return "Failed to process result %s with error message %s"
+                                        .formatted(returnType, e.getMessage());
+                            }
+                        })
                         .build());
 
         if (addedRedeploy) {
@@ -238,6 +248,7 @@ public class ToolDecoratorService {
         }
 
         mcpSyncServer.addTool(McpToolUtils.toSyncToolSpecification(redeployToolCallbackProvider.getToolCallbacks()[0]));
+        mcpSyncServer.notifyToolsListChanged();
         addedRedeploy = true;
 
         toolCallbackProviders.put(
@@ -524,7 +535,8 @@ public class ToolDecoratorService {
     }
 
     private SetSyncClientResult updateExisting(McpSyncClient m, String deployService, DelegateMcpSyncClient mcpClient) {
-
+//      TODO: on MCP connection fail or createToolCallbackProvider fail, then keep the previous tool but update
+//       description so that it shows error unavailable with the particular error.
         McpServerToolState removedState = this.toolCallbackProviders.remove(deployService);
         Map<String, ToolCallbackDescriptor> existing = toExistingToolCallbackProviders(removedState);
 
