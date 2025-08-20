@@ -2,9 +2,11 @@ package com.hayden.mcptoolgateway;
 
 import org.springframework.ai.mcp.client.autoconfigure.McpClientAutoConfiguration;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 /**
  * Sits between MCP tool and re-deployability of that tool.
