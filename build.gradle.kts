@@ -28,6 +28,10 @@ tasks.register<Copy>("copyTestMcpServer") {
     rename { "test-mcp-server.jar" }
 }
 
+tasks.compileJava {
+    dependsOn("copyTestMcpServer")
+}
+
 tasks.test {
     dependsOn("copyTestMcpServer")
 }
