@@ -49,7 +49,6 @@ public class ToolDecoratorService {
     @Autowired
     McpSyncServer mcpSyncServer;
 
-    @Getter
     private final Map<String, McpServerToolState> toolCallbackProviders = new  ConcurrentHashMap<>();
 
     private final Map<String, DelegateMcpSyncClient> syncClients = new ConcurrentHashMap<>();
