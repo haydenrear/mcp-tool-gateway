@@ -31,10 +31,3 @@ tasks.register<Copy>("copyTestMcpServer") {
 tasks.test {
     dependsOn("copyTestMcpServer")
 }
-
-tasks.generateJava {
-    typeMapping = mutableMapOf(
-        Pair("ServerByteArray", "com.hayden.mcptoolgateway.scalar.ByteArray"),
-        Pair("Float32Array", "com.hayden.mcptoolgateway.scalar.FloatArray"),
-    )
-}
