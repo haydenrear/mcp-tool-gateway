@@ -3,7 +3,6 @@ logging.config: classpath:logback-mcp-tool-gateway.xml
 gateway:
   artifact-cache: file:.cache
 
-
 otel:
   instrumentation:
     spring-web:
@@ -40,6 +39,8 @@ spring:
         type: sync
         name: "mcp-tool-gateway"
         version: 1.0.0
+      client:
+        name: replace-name
 
   docker:
     compose:

@@ -138,15 +138,15 @@ public class SetClients {
         });
 
         if (containsToolCallbackProviders(mcpServerToolState)) {
-            return updateExisting(m, mcpClient, mcpServerToolState);
+            return updateExisting(mcpClient, mcpServerToolState);
         } else {
-            return createNew(m, mcpClient);
+            return createNew(mcpClient);
         }
     }
 
-    private ToolDecoratorService.SetSyncClientResult createNew(McpSyncClient m, ToolDecoratorService.DelegateMcpSyncClient mcpClient) {
+    private ToolDecoratorService.SetSyncClientResult createNew(ToolDecoratorService.DelegateMcpSyncClient mcpClient) {
         try {
-            McpSchema.ListToolsResult listToolsResult = m.listTools();
+            McpSchema.ListToolsResult listToolsResult = mcpClient.client.listTools();
 
             List<ToolCallbackProvider> providersCreated = new ArrayList<>();
             Set<String> toolsAdded = new HashSet<>();
@@ -179,11 +179,11 @@ public class SetClients {
         }
     }
 
-    private ToolDecoratorService.SetSyncClientResult updateExisting(McpSyncClient m, ToolDecoratorService.DelegateMcpSyncClient mcpClient, ToolDecoratorService.McpServerToolState removedState) {
+    private ToolDecoratorService.SetSyncClientResult updateExisting(ToolDecoratorService.DelegateMcpSyncClient m, ToolDecoratorService.McpServerToolState removedState) {
         Map<String, ToolDecoratorService.ToolCallbackDescriptor> existing = toExistingToolCallbackProviders(removedState);
 
         try {
-            McpSchema.ListToolsResult listToolsResult = m.listTools();
+            McpSchema.ListToolsResult listToolsResult = m.client.listTools();
 
             List<ToolCallbackProvider> providersCreated = new ArrayList<>();
             Set<String>  toolsAdded = new HashSet<>();
@@ -193,11 +193,11 @@ public class SetClients {
 
 
             var newTools = listToolsResult.tools().stream()
-                    .map(t -> Map.entry(t.name(), t))
+                    .map(t -> Map.entry("%s.%s".formatted(m.client.getClientInfo().name(), t.name()), t))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
             for (var n : newTools.entrySet()) {
-                var p = createToolCallbackProvider(mcpClient, n.getValue());
+                var p = createToolCallbackProvider(m, n.getValue());
                 Optional.ofNullable(p.provider())
                         .ifPresentOrElse(tcp -> {
                             toolsAdded.add(p.toolName().name());
@@ -227,7 +227,7 @@ public class SetClients {
                     .providers(providersCreated)
                     .build();
         } catch (Exception e) {
-            return parseToolExceptionFail(e, mcpClient, existing);
+            return parseToolExceptionFail(e, m, existing);
         }
     }
 
@@ -250,7 +250,7 @@ public class SetClients {
                     .toolName(t)
                     .provider(new StaticToolCallbackProvider(
                             FunctionToolCallback
-                                    .builder(t.name(), (i, o) -> {
+                                    .builder("%s.%s".formatted(mcpSyncClient.client.getClientInfo().name().replace("replace-name - ", ""), t.name()), (i, o) -> {
                                         try {
                                             var tc = objectMapper.writeValueAsString(i);
                                             return mcpSyncClient.callTool(new McpSchema.CallToolRequest(t.name(), tc));
