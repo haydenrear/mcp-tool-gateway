@@ -124,6 +124,11 @@ public class ToolDecoratorService {
 
     @PostConstruct
     public void init() {
+        if (this.toolGatewayConfigProperties.isStartMcpServerOnInitialize())
+            doPerformInit();
+    }
+
+    void doPerformInit() {
         try {
             lock.writeLock().lock();
             buildTools();
@@ -174,8 +179,9 @@ public class ToolDecoratorService {
                         This MCP server is not currently available or has no tools.
                         """.formatted(t.getKey()));
             }
-            if (CollectionUtils.isEmpty(newMcpServerState.get(t.getKey()).toolCallbackProviders())) {
-                StringBuilder err = parseErr(newMcpServerState.get(t.getKey()), t.getKey());
+            var serverState = newMcpServerState.get(t.getKey());
+            if (serverState == null || CollectionUtils.isEmpty(serverState.toolCallbackProviders())) {
+                StringBuilder err = parseErr(serverState, t.getKey());
 
                 descriptions.append("""
                         ## MCP Server Name
@@ -275,7 +281,7 @@ public class ToolDecoratorService {
         return ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(Lists.newArrayList(redeployToolCallbackProvider)).build();
     }
 
-    private RedeployResult parseRedeployResult(ToolModels.Redeploy i, ToolGatewayConfigProperties.DeployableMcpServer toRedeploy) {
+    RedeployResult parseRedeployResult(ToolModels.Redeploy i, ToolGatewayConfigProperties.DeployableMcpServer toRedeploy) {
         var r = redeploy.doRedeploy(i, toRedeploy, this.mcpServerToolStates.remove(i.deployService()));
         this.mcpServerToolStates.put(i.deployService(), r.newToolState());
 //      ok (won't deadlock) because it's in a callback
@@ -288,7 +294,7 @@ public class ToolDecoratorService {
     }
 
 
-    private @NotNull StringBuilder parseErr(ToolDecoratorService.McpServerToolState existing, String service) {
+    @NotNull StringBuilder parseErr(ToolDecoratorService.McpServerToolState existing, String service) {
         StringBuilder err = new StringBuilder();
 
         boolean hasDeployErr = existing != null && existing.lastDeploy() != null && StringUtils.isNotBlank(existing.lastDeploy().err());

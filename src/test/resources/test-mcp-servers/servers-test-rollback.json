@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "test-rollback-server": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "build/libs/test-mcp-server.jar"
+      ]
+    }
+  }
+}

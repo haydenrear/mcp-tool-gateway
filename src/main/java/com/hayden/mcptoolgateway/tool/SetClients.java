@@ -7,7 +7,6 @@ import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -33,11 +32,11 @@ public class SetClients {
      * TODO: this should just contain the specifications in the return types, do it all in the other one.
      */
     @Autowired
-    McpSyncServerDelegate mcpSyncServer;
-    @Autowired
-    DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
+    McpSyncServerDelegate mcpSyncServerDelegate;
     @Autowired
     ObjectMapper objectMapper;
+    @Autowired
+    DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
 
     private final Map<String, ToolDecoratorService.DelegateMcpSyncClient> syncClients = new ConcurrentHashMap<>();
 
@@ -105,7 +104,7 @@ public class SetClients {
 
             for (var tcp : mcpServerToolState.toolCallbackProviders()) {
                 for (var tc : tcp.getToolCallbacks()) {
-                    mcpSyncServer.removeTool(tc.getToolDefinition().name());
+                    mcpSyncServerDelegate.removeTool(tc.getToolDefinition().name());
                     removed.add(tc.getToolDefinition().name());
                 }
             }
@@ -161,7 +160,7 @@ public class SetClients {
                     addToErr(tcp, toolErrors);
                 } else {
                     Arrays.stream(tcp.provider().getToolCallbacks())
-                            .forEach(tc -> mcpSyncServer.addTool(McpToolUtils.toSyncToolSpecification(tc)));
+                            .forEach(tc -> mcpSyncServerDelegate.addTool(McpToolUtils.toSyncToolSpecification(tc)));
                     toolsAdded.add(tcp.toolName().name());
                     tools.add(tcp.toolName().name());
                     providersCreated.add(tcp.provider());
@@ -204,7 +203,7 @@ public class SetClients {
                             tools.add(p.toolName().name());
                             providersCreated.add(tcp);
                             Arrays.stream(tcp.getToolCallbacks())
-                                    .forEach(tc -> mcpSyncServer.addTool(McpToolUtils.toSyncToolSpecification(tc)));
+                                    .forEach(tc -> mcpSyncServerDelegate.addTool(McpToolUtils.toSyncToolSpecification(tc)));
                         }, () -> {
                             log.error("Unable to create tool callback provider for {}.", n.getKey());
                             addToErr(p, toolErrors);
@@ -214,7 +213,7 @@ public class SetClients {
             for (var n : existing.entrySet()) {
                 if (!newTools.containsKey(n.getKey())) {
                     log.info("Removing tool {}", n.getKey());
-                    mcpSyncServer.removeTool(n.getKey());
+                    mcpSyncServerDelegate.removeTool(n.getKey());
                     toolsRemoved.add(n.getKey());
                 }
             }

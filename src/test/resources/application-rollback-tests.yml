@@ -1,0 +1,14 @@
+gateway:
+  deployable-mcp-servers:
+    test-rollback-server:
+      name: test-rollback-server
+      deploy-command: echo "deploy command"
+      directory: classpath:.cache
+      binary: classpath:test_work/test-binary.jar
+  mcp-servers-json-location: classpath:test-mcp-servers/servers-test-rollback.json
+  fail-on-mcp-client-init: false
+  artifact-cache: classpath:.cache
+  start-mcp-server-on-initialize: false
+spring:
+  main:
+    allow-bean-definition-overriding: true

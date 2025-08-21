@@ -24,4 +24,6 @@ public class ToolGatewayConfigProperties {
 
     boolean failOnMcpClientInit = false;
 
+    boolean startMcpServerOnInitialize=true;
+
 }
