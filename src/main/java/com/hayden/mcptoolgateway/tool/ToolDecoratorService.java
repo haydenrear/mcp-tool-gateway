@@ -39,13 +39,9 @@ public class ToolDecoratorService {
     public static final String REDEPLOY_MCP_SERVER = "redeploy-mcp-server";
 
     @Autowired
-    DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
-    @Autowired
     ToolGatewayConfigProperties toolGatewayConfigProperties;
     @Autowired
     ObjectMapper objectMapper;
-    @Autowired
-    RedeployFunction redeployFunction;
     @Autowired
     McpSyncServerDelegate mcpSyncServer;
     @Autowired

@@ -30,12 +30,9 @@ import static com.hayden.mcptoolgateway.tool.ToolDecoratorService.REDEPLOY_MCP_S
 @Service
 @Slf4j
 public class Redeploy {
-    @Autowired
-    ObjectMapper objectMapper;
+
     @Autowired
     SetClients setMcpClient;
-    @Autowired
-    McpSyncServerDelegate mcpSyncServer;
     @Autowired
     RedeployFunction redeployFunction;
     @Autowired
