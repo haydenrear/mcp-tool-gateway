@@ -199,8 +199,8 @@ public class ToolDecoratorService {
                         .flatMap(tcp -> Arrays.stream(tcp.getToolCallbacks()))
                         .map(tc -> {
                             var td = """
-                                - %s.%s
-                                """.formatted(t.getKey(), tc.getToolDefinition().name());
+                                - %s
+                                """.formatted(tc.getToolDefinition().name());
                             return td;
                         })
                         .collect(Collectors.joining(System.lineSeparator()));

@@ -306,6 +306,7 @@ public class SetClients {
     private static @NotNull HashMap<String, ToolDecoratorService.ToolCallbackDescriptor> toExistingToolCallbackProviders(ToolDecoratorService.McpServerToolState removedState) {
         if (removedState == null)
             return new HashMap<>();
+
         List<ToolCallbackProvider> removedProviders = Optional.ofNullable(removedState.toolCallbackProviders()).orElse(new ArrayList<>());
 
         var existing = new HashMap<String, ToolDecoratorService.ToolCallbackDescriptor>();
