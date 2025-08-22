@@ -5,5 +5,11 @@ gateway:
       command: ./gradlew :test-mcp-server bootJar
       directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
       copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin
-  mcp-servers-json-location: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/src/main/resources/mcp-servers/servers-clienttest.json
+  mcp-servers-json-location: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/build/resources/main/mcp-servers/servers-clienttest.json
 server.port: 8081
+
+spring:
+  docker:
+    compose:
+      enabled: false
+      file: file:mcp-tool-gateway/src/main/resources/docker/docker-compose.yml

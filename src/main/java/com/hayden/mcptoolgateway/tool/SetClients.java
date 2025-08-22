@@ -56,6 +56,12 @@ public class SetClients {
         return !syncClients.containsKey(clientName);
     }
 
+    public boolean clientNotInitialized(String service) {
+        return this.syncClients.containsKey(service)
+                && this.syncClients.get(service).getClient() != null
+                && !this.syncClients.get(service).getClient().isInitialized();
+    }
+
     public boolean clientInitialized(String service) {
         return this.syncClients.containsKey(service)
                 && this.syncClients.get(service).getClient() != null
@@ -110,7 +116,6 @@ public class SetClients {
             }
 
             return ToolDecoratorService.SetSyncClientResult.builder()
-                    .lastDeploy(mcpServerToolState.lastDeploy())
                     .toolsRemoved(removed)
                     .tools(tools)
                     .err(m.getMessage())
@@ -222,7 +227,6 @@ public class SetClients {
                     .toolsAdded(toolsAdded)
                     .toolsRemoved(toolsRemoved)
                     .tools(tools)
-                    .lastDeploy(removedState.lastDeploy())
                     .providers(providersCreated)
                     .build();
         } catch (Exception e) {

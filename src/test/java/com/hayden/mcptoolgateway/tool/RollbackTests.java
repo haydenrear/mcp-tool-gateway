@@ -108,7 +108,8 @@ public class RollbackTests {
                     callback.run();
                     return Redeploy.RedeployResultWrapper.builder()
                             .redeployResult(ToolDecoratorService.RedeployResult.builder()
-                                    .didRollback(true)
+                                    .deployState(ToolDecoratorService.DeployState.DEPLOY_FAIL)
+                                    .rollbackState(ToolDecoratorService.DeployState.ROLLBACK_FAIL)
                                     .deployErr("Deployment failed")
                                     .tools(Set.of("rolled-back-tool"))
                                     .build())
@@ -214,7 +215,8 @@ public class RollbackTests {
                     return Redeploy.RedeployResultWrapper.builder()
                             .redeployResult(ToolDecoratorService.RedeployResult.builder()
                                     .deployErr("Error performing redeploy of test-rollback-server.")
-                                    .didRollback(false)
+                                    .deployState(ToolDecoratorService.DeployState.DEPLOY_FAIL)
+                                    .rollbackState(ToolDecoratorService.DeployState.ROLLBACK_FAIL)
                                     .build())
                             .newToolState(ToolDecoratorService.McpServerToolState.builder()
                                     .toolCallbackProviders(new ArrayList<>())
@@ -239,7 +241,7 @@ public class RollbackTests {
         // Verify no rollback backup was created since copyToArtifactPath doesn't exist
         assertThat(Files.exists(toolGatewayConfigProperties.getArtifactCache().resolve(nonExistentBinary.getFileName().toString())))
                 .isFalse();
-        assertThat(result.redeployResult().didRollback()).isFalse();
+        assertThat(result.redeployResult().deployState().didRollback()).isFalse();
     }
 
     //@Test

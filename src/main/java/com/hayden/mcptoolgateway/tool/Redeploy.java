@@ -42,10 +42,21 @@ public class Redeploy {
 
                 if (!r.isSuccess()) {
                     log.debug("Failed to perform redeploy {} - copying old artifact and restarting.", r);
-                    return rollback.rollback(redeploy, d, r, toolState);
+                    return rollback.rollback(redeploy, d, r, toolState, ToolDecoratorService.DeployState.DEPLOY_FAIL);
                 }
 
-                return deploy.handleDidRedeployUpdateToolCallbackProviders(redeploy, r, toolState);
+                var didRedeploy = deploy.handleDeploy(
+                        DeployService.DeployDescription.AfterSuccessfulRedeploy.builder()
+                                .r(r)
+                                .redeploy(redeploy)
+                                .toolState(toolState)
+                                .build());
+
+                if (didRedeploy.redeployResult().deployState().didRedeploy()) {
+                    return didRedeploy;
+                }
+
+                return rollback.rollback(redeploy, d, r, toolState, didRedeploy.redeployResult().deployState());
         });
 
         return res;
