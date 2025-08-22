@@ -3,6 +3,7 @@ package com.hayden.mcptoolgateway.config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.mcptoolgateway.fn.FunctionCallingGraphqlRedeploy;
 import com.hayden.utilitymodule.ByteUtility;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import io.modelcontextprotocol.client.transport.ServerParameters;
@@ -93,8 +94,10 @@ public class ToolGatewayConfig {
     }
 
     @Bean
-    public CommandLineRunner initializeCodeExecutions(ToolGatewayConfigProperties props) {
+    public CommandLineRunner initializeCodeExecutions(ToolGatewayConfigProperties props,
+                                                      FunctionCallingGraphqlRedeploy graphqlRedeploy) {
         return args -> {
+
 //            TODO: register runner code
         };
     }

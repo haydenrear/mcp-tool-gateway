@@ -23,8 +23,9 @@ management:
       export:
         enabled: false
 
+
 graphql-props:
-  port: 8080
+  port: 8084
   url: localhost
 
 spring:
@@ -44,6 +45,14 @@ spring:
 
   docker:
     compose:
-      enabled: false
+      enabled: true
+      file: classpath:docker/docker-compose.yml
+      skip:
+        in-tests: true
+      lifecycle-management: start_and_stop
+      start:
+        skip: if_running
+      readiness:
+        wait: only_if_started
 
 

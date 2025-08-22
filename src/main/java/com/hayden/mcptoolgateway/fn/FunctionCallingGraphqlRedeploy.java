@@ -1,8 +1,6 @@
 package com.hayden.mcptoolgateway.fn;
 
-import com.hayden.commitdiffmodel.codegen.client.BuildGraphQLQuery;
-import com.hayden.commitdiffmodel.codegen.client.BuildProjectionRoot;
-import com.hayden.commitdiffmodel.codegen.client.ExecuteGraphQLQuery;
+import com.hayden.commitdiffmodel.codegen.client.*;
 import com.hayden.commitdiffmodel.codegen.types.*;
 import com.hayden.commitdiffmodel.codegen.types.Error;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
@@ -12,7 +10,10 @@ import org.springframework.graphql.client.DgsGraphQlClient;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -20,6 +21,35 @@ import java.util.Optional;
 public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
 
     private final DgsGraphQlClient graphQlClient;
+
+
+    public void register(ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer) {
+        RegisterCodeBuildGraphQLQuery registerCodeBuildGraphQLQuery = RegisterCodeBuildGraphQLQuery
+                .newRequest()
+                .codeBuildRegistration(
+                        CodeBuildRegistrationIn.newBuilder()
+                                .buildCommand(deployableMcpServer.getCommand())
+                                .arguments(deployableMcpServer.getArguments())
+                                .enabled(true)
+                                .buildFailurePatterns(new ArrayList<>(deployableMcpServer.getFailurePatterns()))
+                                .buildSuccessPatterns(new ArrayList<>(deployableMcpServer.getSuccessPatterns()))
+                                .registrationId(deployableMcpServer.getName())
+                                .executionType(ExecutionType.PROCESS_BUILDER)
+                                .artifactOutputDirectory(deployableMcpServer.getCopyToArtifactPath().getParent().toString())
+                                .workingDirectory(deployableMcpServer.getDirectory().toString())
+                                .artifactPaths(List.of(deployableMcpServer.getCopyFromArtifactPath().toString()))
+                                .build())
+                .queryName("registerCodeBuild")
+                .build();
+        graphQlClient.request(registerCodeBuildGraphQLQuery)
+                .projection(
+                        new RegisterCodeBuildProjectionRoot<>()
+                                .artifactPaths()
+                )
+                .retrieveSync()
+                .toEntity(CodeBuildRegistration.class);
+
+    }
 
     @Override
     public RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DeployableMcpServer name) {

@@ -18,7 +18,6 @@ import java.nio.file.Path;
 import java.util.*;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.springframework.ai.util.json.schema.JsonSchemaGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -64,10 +63,10 @@ public class RollbackTests {
         Files.createDirectories(testServer.directory());
         Files.createDirectories(toolGatewayConfigProperties.getArtifactCache());
         
-        // Create test binary if it doesn't exist
-        if (!Files.exists(testServer.binary())) {
-            Files.createDirectories(testServer.binary().getParent());
-            Files.write(testServer.binary(), "test binary content".getBytes());
+        // Create test copyToArtifactPath if it doesn't exist
+        if (!Files.exists(testServer.copyToArtifactPath())) {
+            Files.createDirectories(testServer.copyToArtifactPath().getParent());
+            Files.write(testServer.copyToArtifactPath(), "test copyToArtifactPath content".getBytes());
         }
 
         // Reset mocks
@@ -93,7 +92,7 @@ public class RollbackTests {
     //@Test
     void shouldHandleRedeployWithRollbackScenario() throws IOException {
         // Given
-        Files.write(testServer.binary(), "original binary content".getBytes());
+        Files.write(testServer.copyToArtifactPath(), "original copyToArtifactPath content".getBytes());
 
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("test-rollback-server");
         
@@ -136,8 +135,8 @@ public class RollbackTests {
 
         // Then
         verify(redeployFunction).performRedeploy(testServer);
-        // Verify that rollback preparation would have occurred (binary backup)
-        assertThat(Files.exists(toolGatewayConfigProperties.getArtifactCache().resolve(testServer.binary().getFileName().toString())))
+        // Verify that rollback preparation would have occurred (copyToArtifactPath backup)
+        assertThat(Files.exists(toolGatewayConfigProperties.getArtifactCache().resolve(testServer.copyToArtifactPath().getFileName().toString())))
                 .isTrue();
     }
 
@@ -237,7 +236,7 @@ public class RollbackTests {
 
         // Then
         verify(redeployFunction).performRedeploy(serverWithoutBinary);
-        // Verify no rollback backup was created since binary doesn't exist
+        // Verify no rollback backup was created since copyToArtifactPath doesn't exist
         assertThat(Files.exists(toolGatewayConfigProperties.getArtifactCache().resolve(nonExistentBinary.getFileName().toString())))
                 .isFalse();
         assertThat(result.redeployResult().didRollback()).isFalse();

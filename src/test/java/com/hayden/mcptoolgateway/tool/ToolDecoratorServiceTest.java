@@ -12,7 +12,6 @@ import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.springframework.ai.util.json.schema.JsonSchemaGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -65,10 +64,10 @@ class ToolDecoratorServiceTest {
         Files.createDirectories(testServer.directory());
         Files.createDirectories(toolGatewayConfigProperties.getArtifactCache());
         
-        // Create test binary if it doesn't exist
-        if (!Files.exists(testServer.binary())) {
-            Files.createDirectories(testServer.binary().getParent());
-            Files.write(testServer.binary(), "test binary content".getBytes());
+        // Create test copyToArtifactPath if it doesn't exist
+        if (!Files.exists(testServer.copyToArtifactPath())) {
+            Files.createDirectories(testServer.copyToArtifactPath().getParent());
+            Files.write(testServer.copyToArtifactPath(), "test copyToArtifactPath content".getBytes());
         }
 
         // Reset mocks before each test

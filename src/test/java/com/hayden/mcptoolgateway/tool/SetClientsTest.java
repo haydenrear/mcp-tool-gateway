@@ -5,19 +5,16 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.util.json.schema.JsonSchemaGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.io.IOException;
@@ -62,10 +59,10 @@ class SetClientsTest {
         Files.createDirectories(testServer.directory());
         Files.createDirectories(toolGatewayConfigProperties.getArtifactCache());
         
-        // Create test binary if it doesn't exist
-        if (!Files.exists(testServer.binary())) {
-            Files.createDirectories(testServer.binary().getParent());
-            Files.write(testServer.binary(), "test binary content".getBytes());
+        // Create test copyToArtifactPath if it doesn't exist
+        if (!Files.exists(testServer.copyToArtifactPath())) {
+            Files.createDirectories(testServer.copyToArtifactPath().getParent());
+            Files.write(testServer.copyToArtifactPath(), "test copyToArtifactPath content".getBytes());
         }
         
         // Reset all mocks

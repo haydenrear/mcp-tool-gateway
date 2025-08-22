@@ -68,11 +68,11 @@ public class RollbackFunction {
     }
 
     public void prepareRollback(ToolGatewayConfigProperties.DeployableMcpServer d) {
-        if (d.binary().toFile().exists()) {
+        if (d.copyToArtifactPath().toFile().exists()) {
             try {
                 Files.copy(
-                        d.binary(),
-                        toolGatewayConfigProperties.getArtifactCache().resolve(d.binary().toFile().getName()),
+                        d.copyToArtifactPath(),
+                        toolGatewayConfigProperties.getArtifactCache().resolve(d.copyToArtifactPath().toFile().getName()),
                         StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 log.error("Failed to copy MCP server artifact to cache.");
@@ -84,13 +84,13 @@ public class RollbackFunction {
                                                        ToolGatewayConfigProperties.DeployableMcpServer d,
                                                        RedeployFunction.RedeployDescriptor r,
                                                        ToolDecoratorService.McpServerToolState toolState) throws IOException {
-        if (!toolGatewayConfigProperties.getArtifactCache().resolve(d.binary().toFile().getName()).toFile().exists()) {
+        if (!toolGatewayConfigProperties.getArtifactCache().resolve(d.copyToArtifactPath().toFile().getName()).toFile().exists()) {
             return doTryRollbackInner(redeploy, r, toolState);
         }
 
         Files.copy(
-                toolGatewayConfigProperties.getArtifactCache().resolve(d.binary().toFile().getName()),
-                d.binary(),
+                toolGatewayConfigProperties.getArtifactCache().resolve(d.copyToArtifactPath().toFile().getName()),
+                d.copyToArtifactPath(),
                 StandardCopyOption.REPLACE_EXISTING);
 
         return doTryRollbackInner(redeploy, r, toolState);

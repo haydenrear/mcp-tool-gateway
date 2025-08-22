@@ -4,6 +4,7 @@ plugins {
     id("com.hayden.observable-app")
     id("com.hayden.dgs-graphql")
     id("com.hayden.log")
+    id("com.hayden.docker-compose")
 }
 
 group = "com.hayden"
@@ -34,4 +35,8 @@ tasks.compileJava {
 
 tasks.test {
     dependsOn("copyTestMcpServer")
+}
+
+tasks.bootJar {
+    dependsOn(project(":function-calling").tasks.named("copyJar"))
 }
