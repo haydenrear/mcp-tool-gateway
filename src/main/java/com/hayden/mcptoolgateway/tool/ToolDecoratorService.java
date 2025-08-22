@@ -25,6 +25,7 @@ import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -92,28 +93,29 @@ public class ToolDecoratorService {
     public record ToolCallbackDescriptor(ToolCallbackProvider provider, ToolCallback toolCallback) {}
 
     @Builder(toBuilder = true)
-    record McpServerToolState(
+    public record McpServerToolState(
             List<ToolCallbackProvider> toolCallbackProviders,
             RedeployFunction.RedeployDescriptor lastDeploy) { }
 
     @Builder(toBuilder = true)
-    record RedeployResult(
+    public record RedeployResult(
             Set<String> toolsRemoved,
             Set<String> toolsAdded,
             Set<String> tools,
             String deployErr,
+            Path deployLog,
             String mcpConnectErr,
             boolean didRollback
     ) {}
 
     @Builder(toBuilder = true)
-    record SetSyncClientResult(Set<String> tools,
+    public record SetSyncClientResult(Set<String> tools,
                                Set<String> toolsAdded,
                                Set<String> toolsRemoved,
                                String err,
                                List<ToolCallbackProvider> providers,
                                RedeployFunction.RedeployDescriptor lastDeploy) {
-        boolean wasSuccessful() {
+        public boolean wasSuccessful() {
             return StringUtils.isBlank(err);
         }
     }

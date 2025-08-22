@@ -1,0 +1,13 @@
+#services: TODO: add function-calling, db, etc.
+#  commit-diff-postgres:
+#    image: localhost:5001/postgres-pgvector
+#    container_name: commit-diff-postgres
+#    environment:
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    volumes:
+#      - commit-diff:/var/lib/postgresql/embedding
+#    ports:
+#      - "5436:5432"
+#volumes:
+#  commit-diff:

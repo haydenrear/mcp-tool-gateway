@@ -92,4 +92,11 @@ public class ToolGatewayConfig {
         });
     }
 
+    @Bean
+    public CommandLineRunner initializeCodeExecutions(ToolGatewayConfigProperties props) {
+        return args -> {
+//            TODO: register runner code
+        };
+    }
+
 }

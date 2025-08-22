@@ -56,7 +56,7 @@ public class SetClients {
         return !syncClients.containsKey(clientName);
     }
 
-    boolean clientInitialized(String service) {
+    public boolean clientInitialized(String service) {
         return this.syncClients.containsKey(service)
                 && this.syncClients.get(service).getClient() != null
                 && this.syncClients.get(service).getClient().isInitialized();
@@ -76,7 +76,7 @@ public class SetClients {
     }
 
     @StripedLock
-    ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    public ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return this.dynamicMcpToolCallbackProvider.buildClient(deployService)
                 .map(m -> createSetSyncClient(m, deployService, mcpServerToolState))
                 .onErrorFlatMapResult(err -> Result.ok(createSetClientErr(deployService, err, mcpServerToolState)))
@@ -84,7 +84,7 @@ public class SetClients {
     }
 
     @StripedLock
-    ToolDecoratorService.SetSyncClientResult createSetClientErr(String service,
+    public ToolDecoratorService.SetSyncClientResult createSetClientErr(String service,
                                                                 DynamicMcpToolCallbackProvider.McpError m,
                                                                 ToolDecoratorService.McpServerToolState mcpServerToolState) {
         this.syncClients.compute(service, (key, prev) -> {
