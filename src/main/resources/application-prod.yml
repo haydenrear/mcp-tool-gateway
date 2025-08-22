@@ -5,9 +5,9 @@ gateway:
       command: ./gradlew :commit-diff-context-mcp bootjar
       directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
       copy-from-artifact-path: commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
-      copy-to-artifact-path:
+      copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin
   fail-on-mcp-client-init: false
-  mcp-servers-json-location: classpath:mcp-servers/servers.json
+  mcp-servers-json-location: classpath:mcp-servers/servers-prod.json
 
 server.port: 8081
 

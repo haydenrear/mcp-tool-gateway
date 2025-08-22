@@ -13,4 +13,6 @@ public interface RedeployFunction {
 
     RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DeployableMcpServer name);
 
+    void register(ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer);
+
 }

@@ -2,6 +2,7 @@ gateway:
   deployable-mcp-servers:
     test-mcp-server:
       name: test-mcp-server
-      deploy-command: ./gradlew :test-mcp-server bootJar
+      command: ./gradlew :test-mcp-server bootJar
       directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
+      copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin
   mcp-servers-json-location: classpath:mcp-servers/servers-inttest.json

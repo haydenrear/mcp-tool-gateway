@@ -121,7 +121,7 @@ class RedeployTest {
     @Test
     void shouldRollbackWhenRedeployFailsAndBinaryExists() throws IOException {
         // Given - Ensure copyToArtifactPath file exists
-        Files.write(deployableMcpServer.copyToArtifactPath(), "original content".getBytes());
+        Files.write(deployableMcpServer.getCopyToArtifactPath(), "original content".getBytes());
 
         RedeployFunction.RedeployDescriptor failedDescriptor = RedeployFunction.RedeployDescriptor.builder()
                 .isSuccess(false)
@@ -157,12 +157,14 @@ class RedeployTest {
     void shouldHandleFailedRedeployWithoutRollbackWhenBinaryDoesNotExist() throws IOException {
         // Given - Use a non-existent copyToArtifactPath path
         Path nonExistentBinary = deployableMcpServer.directory().resolve("non-existent.jar");
-        ToolGatewayConfigProperties.DeployableMcpServer serverWithoutBinary = 
-                new ToolGatewayConfigProperties.DeployableMcpServer(
-                        "test-rollback-server",
-                        "echo 'deploy'",
-                        deployableMcpServer.directory(),
-                        nonExistentBinary);
+        ToolGatewayConfigProperties.DeployableMcpServer serverWithoutBinary =
+                ToolGatewayConfigProperties.DeployableMcpServer.builder().name(
+                                "test-rollback-server")
+                        .command(
+                                "echo 'deploy'").directory(
+                                deployableMcpServer.directory())
+                        .copyToArtifactPath(nonExistentBinary)
+                        .build();
 
         RedeployFunction.RedeployDescriptor failedDescriptor = RedeployFunction.RedeployDescriptor.builder()
                 .isSuccess(false)
@@ -218,7 +220,7 @@ class RedeployTest {
     @Test
     void shouldHandleRollbackWithConnectionFailure() throws IOException {
         // Given - Create copyToArtifactPath that exists
-        Files.write(deployableMcpServer.copyToArtifactPath(), "original content".getBytes());
+        Files.write(deployableMcpServer.getCopyToArtifactPath(), "original content".getBytes());
 
         RedeployFunction.RedeployDescriptor failedDescriptor = RedeployFunction.RedeployDescriptor.builder()
                 .isSuccess(false)

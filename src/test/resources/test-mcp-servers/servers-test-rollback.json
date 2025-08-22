@@ -4,7 +4,7 @@
       "command": "java",
       "args": [
         "-jar",
-        "build/libs/test-mcp-server.jar"
+        "{{PROJ_DIR}}/ctx_bin/test-mcp-server.jar"
       ]
     }
   }

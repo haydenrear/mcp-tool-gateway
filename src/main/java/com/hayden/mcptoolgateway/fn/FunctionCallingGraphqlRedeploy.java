@@ -41,6 +41,7 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
                                 .build())
                 .queryName("registerCodeBuild")
                 .build();
+
         graphQlClient.request(registerCodeBuildGraphQLQuery)
                 .projection(
                         new RegisterCodeBuildProjectionRoot<>()

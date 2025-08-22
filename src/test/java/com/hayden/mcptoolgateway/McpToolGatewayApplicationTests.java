@@ -68,7 +68,7 @@ class McpToolGatewayApplicationTests {
 
     @Test
     void containsTestJarActiveClient() {
-        assertThat(new File("build/libs/test-mcp-server.jar").exists()).isTrue();
+        assertThat(new File("ctx_bin/test-mcp-server.jar").exists()).isTrue();
         assertThat(dynamicMcpToolCallbackProvider.containsClient("test-mcp-server")).isTrue();
         assertThat(dynamicMcpToolCallbackProvider.containsActiveClient("test-mcp-server")).isTrue();
     }

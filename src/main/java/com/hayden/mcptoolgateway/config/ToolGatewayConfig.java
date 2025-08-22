@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.mcptoolgateway.fn.FunctionCallingGraphqlRedeploy;
+import com.hayden.mcptoolgateway.fn.RedeployFunction;
 import com.hayden.utilitymodule.ByteUtility;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import com.hayden.utilitymodule.stream.StreamUtil;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
@@ -95,10 +97,12 @@ public class ToolGatewayConfig {
 
     @Bean
     public CommandLineRunner initializeCodeExecutions(ToolGatewayConfigProperties props,
-                                                      FunctionCallingGraphqlRedeploy graphqlRedeploy) {
+                                                      RedeployFunction graphqlRedeploy) {
         return args -> {
-
-//            TODO: register runner code
+            StreamUtil.toStream(props.deployableMcpServers.values())
+                    .forEach(entry -> {
+                        graphqlRedeploy.register(entry);
+                    });
         };
     }
 
