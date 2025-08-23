@@ -159,15 +159,19 @@ public class SetClients {
             Set<String> toolErrors = new HashSet<>();
 
             var t = toToolCallbackProvider(listToolsResult, mcpClient);
+
             for (var tcp : t) {
                 if (tcp.provider() == null) {
 //                  there is no existing!
                     addToErr(tcp, toolErrors);
                 } else {
                     Arrays.stream(tcp.provider().getToolCallbacks())
-                            .forEach(tc -> mcpSyncServerDelegate.addTool(McpToolUtils.toSyncToolSpecification(tc)));
-                    toolsAdded.add(tcp.toolName().name());
-                    tools.add(tcp.toolName().name());
+                            .forEach(tc -> {
+                                mcpSyncServerDelegate.addTool(McpToolUtils.toSyncToolSpecification(tc));
+                                toolsAdded.add(tc.getToolDefinition().name());
+                                tools.add(tc.getToolDefinition().name());
+                            });
+                    log.info("Adding new toolfor callback {}", tcp.toolName().name());
                     providersCreated.add(tcp.provider());
                 }
             }
@@ -197,15 +201,22 @@ public class SetClients {
 
 
             var newTools = listToolsResult.tools().stream()
-                    .map(t -> Map.entry("%s.%s".formatted(m.client.getClientInfo().name(), t.name()), t))
+                    .map(t -> Map.entry("%s.%s".formatted(doReplaceName(m.client.getClientInfo().name()), t.name()), t))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            log.info("Updating existing {}", newTools.keySet());
 
             for (var n : newTools.entrySet()) {
                 var p = createToolCallbackProvider(m, n.getValue());
                 Optional.ofNullable(p.provider())
                         .ifPresentOrElse(tcp -> {
-                            toolsAdded.add(p.toolName().name());
-                            tools.add(p.toolName().name());
+                            if (!existing.containsKey(n.getKey())) {
+                                log.info("Adding new {}", n.getKey());
+                                toolsAdded.add(n.getKey());
+                            } else {
+                                mcpSyncServerDelegate.removeTool(n.getKey());
+                            }
+                            tools.add(n.getKey());
                             providersCreated.add(tcp);
                             Arrays.stream(tcp.getToolCallbacks())
                                     .forEach(tc -> mcpSyncServerDelegate.addTool(McpToolUtils.toSyncToolSpecification(tc)));
@@ -217,7 +228,7 @@ public class SetClients {
 
             for (var n : existing.entrySet()) {
                 if (!newTools.containsKey(n.getKey())) {
-                    log.info("Removing tool {}", n.getKey());
+                    log.info("Removing tool {} from {}", n.getKey(), newTools.keySet());
                     mcpSyncServerDelegate.removeTool(n.getKey());
                     toolsRemoved.add(n.getKey());
                 }
@@ -249,11 +260,12 @@ public class SetClients {
     private @NotNull ToolDecoratorService.CreateToolCallbackProviderResult createToolCallbackProvider(ToolDecoratorService.DelegateMcpSyncClient mcpSyncClient,
                                                                                                       McpSchema.Tool t) {
         try {
+            String formatted = getToolName(mcpSyncClient.client.getClientInfo().name(), t.name());
             return ToolDecoratorService.CreateToolCallbackProviderResult.builder()
                     .toolName(t)
                     .provider(new StaticToolCallbackProvider(
                             FunctionToolCallback
-                                    .builder("%s.%s".formatted(mcpSyncClient.client.getClientInfo().name().replace("replace-name - ", ""), t.name()), (i, o) -> {
+                                    .builder(formatted, (i, o) -> {
                                         try {
                                             var tc = objectMapper.writeValueAsString(i);
                                             return mcpSyncClient.callTool(new McpSchema.CallToolRequest(t.name(), tc));
@@ -274,6 +286,16 @@ public class SetClients {
                     .e(e)
                     .build();
         }
+    }
+
+    private static @NotNull String getToolName(String serviceName, String toolName) {
+        log.info("Getting tool name for service {}, tool name {}", serviceName, toolName);
+        String formatted = "%s.%s".formatted(doReplaceName(serviceName), toolName);
+        return formatted;
+    }
+
+    private static @NotNull String doReplaceName(String serviceName) {
+        return serviceName.replace("replace-name - ", "");
     }
 
     private static void addToErr(ToolDecoratorService.CreateToolCallbackProviderResult p, Set<String> toolErrors) {
@@ -307,8 +329,10 @@ public class SetClients {
     }
 
     private static @NotNull HashMap<String, ToolDecoratorService.ToolCallbackDescriptor> toExistingToolCallbackProviders(ToolDecoratorService.McpServerToolState removedState) {
-        if (removedState == null)
+        if (removedState == null) {
+            log.info("Removed state was null.");
             return new HashMap<>();
+        }
 
         List<ToolCallbackProvider> removedProviders = Optional.ofNullable(removedState.toolCallbackProviders()).orElse(new ArrayList<>());
 
@@ -317,6 +341,7 @@ public class SetClients {
         for (int i =0; i < removedProviders.size(); i++) {
             var provider = removedProviders.get(i);
             for (ToolCallback toolCallback : provider.getToolCallbacks()) {
+                log.info("Found removed {}", toolCallback.getToolDefinition().name());
                 existing.put(toolCallback.getToolDefinition().name(), new ToolDecoratorService.ToolCallbackDescriptor(provider, toolCallback));
             }
         }

@@ -21,7 +21,9 @@ public class GraphQlConfig {
         template = template.connectTimeout(Duration.ofSeconds(1000));
         template = template.readTimeout(Duration.ofSeconds(1000));
         return DgsGraphQlClient.create(
-                HttpSyncGraphQlClient.builder(RestClient.create(template.build()).mutate().baseUrl(commitDiffContextConfigProps.getUrl()).build())
+                HttpSyncGraphQlClient.builder(
+                        RestClient.create(template.build()).mutate().baseUrl(commitDiffContextConfigProps.getUrl())
+                                .build())
                         .blockingTimeout(Duration.ofSeconds(1000))
                         .url(commitDiffContextConfigProps.getUrl())
                         .build());

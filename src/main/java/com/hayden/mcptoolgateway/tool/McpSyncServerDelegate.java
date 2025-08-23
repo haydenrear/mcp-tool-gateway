@@ -14,11 +14,21 @@ public class McpSyncServerDelegate {
     McpSyncServer mcpSyncServer;
 
     public synchronized void addTool(McpServerFeatures.SyncToolSpecification toolHandler) {
-        mcpSyncServer.addTool(toolHandler);
+        try {
+            log.info("Adding tool to sync server - {}", toolHandler.tool().name());
+            mcpSyncServer.addTool(toolHandler);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
     }
 
     public synchronized void removeTool(String toolName) {
-        mcpSyncServer.removeTool(toolName);
+        try {
+            log.info("Removing tool to sync server - {}", toolName);
+            mcpSyncServer.removeTool(toolName);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
     }
 
     public synchronized void notifyToolsListChanged() {

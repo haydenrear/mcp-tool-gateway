@@ -6,6 +6,7 @@ import com.hayden.commitdiffmodel.codegen.types.Error;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.graphql.client.DgsGraphQlClient;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
@@ -24,6 +26,7 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
 
 
     public void register(ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer) {
+        log.info("Registering {}", deployableMcpServer.getName());
         RegisterCodeBuildGraphQLQuery registerCodeBuildGraphQLQuery = RegisterCodeBuildGraphQLQuery
                 .newRequest()
                 .codeBuildRegistration(
@@ -31,24 +34,30 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
                                 .buildCommand(deployableMcpServer.getCommand())
                                 .arguments(deployableMcpServer.getArguments())
                                 .enabled(true)
-                                .buildFailurePatterns(new ArrayList<>(deployableMcpServer.getFailurePatterns()))
-                                .buildSuccessPatterns(new ArrayList<>(deployableMcpServer.getSuccessPatterns()))
+                                .buildFailurePatterns(StreamUtil.toStream(deployableMcpServer.getFailurePatterns()).toList())
+                                .buildSuccessPatterns(StreamUtil.toStream(deployableMcpServer.getSuccessPatterns()).toList())
                                 .registrationId(deployableMcpServer.getName())
                                 .executionType(ExecutionType.PROCESS_BUILDER)
-                                .artifactOutputDirectory(deployableMcpServer.getCopyToArtifactPath().getParent().toString())
+                                .artifactOutputDirectory(deployableMcpServer.getCopyToArtifactPath().toString())
                                 .workingDirectory(deployableMcpServer.getDirectory().toString())
                                 .artifactPaths(List.of(deployableMcpServer.getCopyFromArtifactPath().toString()))
                                 .build())
                 .queryName("registerCodeBuild")
                 .build();
 
-        graphQlClient.request(registerCodeBuildGraphQLQuery)
+        var l = graphQlClient.request(registerCodeBuildGraphQLQuery)
                 .projection(
                         new RegisterCodeBuildProjectionRoot<>()
+                                .registrationId()
                                 .artifactPaths()
+                                .error()
+                                .message()
+                                .parent()
                 )
                 .retrieveSync()
                 .toEntity(CodeBuildRegistration.class);
+
+        log.info("Registered next build registration {}", l);
 
     }
 
@@ -57,32 +66,35 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
         var execute = BuildGraphQLQuery.newRequest()
                 .options(CodeBuildOptions.newBuilder()
                         .writeToFile(true)
+                        .registrationId(name.getName())
                         .build())
                 .queryName("build")
                 .build();
-        return from(
-                graphQlClient.request(execute)
-                        .projection(new BuildProjectionRoot<>()
-                                .artifactPaths()
-                                .buildId()
-                                .error()
-                                    .message()
-                                    .parent()
-                                .success()
-                                .sessionId()
-                                .artifactOutputDirectory()
-                                .executionTime()
-                                .exitCode()
-                                .registrationId()
-                                .output()
-                                .buildLog()
-                        )
-                        .retrieveSync()
-                        .toEntity(CodeBuildResult.class));
+        log.info("Rebuilding {}", name);
+        CodeBuildResult block = graphQlClient.request(execute)
+                .projection(new BuildProjectionRoot<>()
+                        .artifactPaths()
+                        .buildId()
+                        .error()
+                        .message()
+                        .parent()
+                        .success()
+                        .sessionId()
+                        .artifactOutputDirectory()
+                        .executionTime()
+                        .exitCode()
+                        .registrationId()
+                        .output()
+                        .buildLog()
+                )
+                .retrieveSync()
+                .toEntity(CodeBuildResult.class);
+        return from(block);
     }
 
     public RedeployDescriptor from(CodeBuildResult result) {
-        return Optional.ofNullable(result)
+        log.info("Rebuilt {}", result);
+        var r = Optional.ofNullable(result)
                 .map(rd -> RedeployDescriptor.builder()
                         .err(CollectionUtils.isEmpty(result.getError())
                                 ? null
@@ -97,5 +109,6 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
                 .orElseGet(() -> RedeployDescriptor.builder()
                         .err("Code build result was null!")
                         .build());
+        return r;
     }
 }

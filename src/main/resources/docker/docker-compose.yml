@@ -9,18 +9,18 @@ services:
     environment:
       SERVER_PORT: 8084
       PG_HOST: host.docker.internal
-  function-calling-postgres:
-    image: localhost:5001/postgres-pgvector
-    container_name: function-calling-postgres
-    networks:
-      function-calling-network:
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - function-calling:/var/lib/postgresql/embedding
-    ports:
-      - "5401:5432"
+#  function-calling-postgres:
+#    image: localhost:5001/postgres-pgvector
+#    container_name: function-calling-postgres
+#    networks:
+#      function-calling-network:
+#    environment:
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    volumes:
+#      - function-calling:/var/lib/postgresql/embedding
+#    ports:
+#      - "5401:5432"
 volumes:
   function-calling:
 networks:

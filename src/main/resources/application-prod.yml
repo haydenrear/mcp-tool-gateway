@@ -2,10 +2,10 @@ gateway:
   deployable-mcp-servers:
     commit-diff-context-mcp:
       name: commit-diff-context-mcp
-      command: ./gradlew :commit-diff-context-mcp bootjar
+      arguments: gradlew commit-diff-context-mcp:build -x test
       directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
-      copy-from-artifact-path: commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
       copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin
+      copy-from-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
   fail-on-mcp-client-init: false
   mcp-servers-json-location: classpath:mcp-servers/servers-prod.json
 

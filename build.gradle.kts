@@ -28,7 +28,7 @@ tasks.register<Copy>("copyTestMcpServer") {
     }
 
     dependsOn(project(":test-mcp-server").tasks.named("bootJar"))
-    val sourcePaths = file(project(":test-mcp-server").layout.buildDirectory).resolve("libs/test-mcp-server-1.0.0.jar")
+    val sourcePaths = file(project(":test-mcp-server").layout.buildDirectory).resolve("libs/test-mcp-server.jar")
     from(sourcePaths)
     into(file(projDir).resolve("ctx_bin"))
     // Optionally rename it to a fixed name

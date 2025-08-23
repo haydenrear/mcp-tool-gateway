@@ -1,10 +1,7 @@
 package com.hayden.mcptoolgateway.config;
 
 import com.hayden.commitdiffmodel.codegen.types.ExecutionType;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +18,7 @@ public class ToolGatewayConfigProperties {
     @AllArgsConstructor
     @NoArgsConstructor
     @Builder
+    @ToString
     public static class DeployableMcpServer {
 
         public DeployableMcpServer(String name, String command, Path directory, Path binary) {

@@ -98,12 +98,10 @@ public class ToolGatewayConfig {
     @Bean
     public CommandLineRunner initializeCodeExecutions(ToolGatewayConfigProperties props,
                                                       RedeployFunction graphqlRedeploy) {
-        return args -> {
-            StreamUtil.toStream(props.deployableMcpServers.values())
-                    .forEach(entry -> {
-                        graphqlRedeploy.register(entry);
-                    });
-        };
+        StreamUtil.toStream(props.deployableMcpServers.values())
+                .forEach(graphqlRedeploy::register);
+        return args -> {};
     }
+
 
 }
