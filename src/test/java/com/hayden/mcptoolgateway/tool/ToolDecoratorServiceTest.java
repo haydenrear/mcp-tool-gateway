@@ -13,6 +13,7 @@ import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.BeforeEach;
+import org.mockito.invocation.InvocationOnMock;
 import org.springframework.ai.util.json.schema.JsonSchemaGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +23,9 @@ import org.springframework.test.context.ActiveProfiles;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 @SpringBootTest
 @ActiveProfiles("rollback-tests")
@@ -84,7 +88,7 @@ class ToolDecoratorServiceTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
 
         // When
-        toolDecoratorService.init();
+        toolDecoratorService.doPerformInit();
 
         // Then
         verify(mcpSyncServer, atLeastOnce()).addTool(any());
@@ -98,7 +102,7 @@ class ToolDecoratorServiceTest {
                 .thenThrow(new RuntimeException("Connection failed"));
 
         // When & Then
-        assertThatCode(() -> toolDecoratorService.init())
+        assertThatCode(() -> toolDecoratorService.doPerformInit())
                 .doesNotThrowAnyException();
     }
 
@@ -111,7 +115,7 @@ class ToolDecoratorServiceTest {
                 .thenThrow(new RuntimeException("Connection failed"));
 
         // When & Then
-        assertThatThrownBy(() -> toolDecoratorService.init())
+        assertThatThrownBy(() -> toolDecoratorService.doPerformInit())
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Connection failed");
     }
@@ -157,9 +161,7 @@ class ToolDecoratorServiceTest {
 
         when(dynamicMcpToolCallbackProvider.killClientAndThen(eq("test-rollback-server"), any()))
                 .thenAnswer(invocation -> {
-                    Runnable callback = invocation.getArgument(1);
-                    callback.run();
-                    return mockResult;
+                    return doCall(invocation);
                 });
 
         when(redeployFunction.performRedeploy(testServer))
@@ -170,8 +172,8 @@ class ToolDecoratorServiceTest {
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
 
-        // Setup initial state
-        toolDecoratorService.init();
+        // Setup doPerformInitial state
+        toolDecoratorService.doPerformInit();
 
         // When
         String jsonResult = objectMapper.writeValueAsString(
@@ -193,7 +195,7 @@ class ToolDecoratorServiceTest {
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
 
-        toolDecoratorService.init();
+        toolDecoratorService.doPerformInit();
 
         // When
         ToolDecoratorService.RedeployResult result = toolDecoratorService.parseRedeployResult(redeployRequest, testServer);
@@ -219,9 +221,7 @@ class ToolDecoratorServiceTest {
 
         when(dynamicMcpToolCallbackProvider.killClientAndThen(any(), any()))
                 .thenAnswer(invocation -> {
-                    Runnable callback = invocation.getArgument(1);
-                    callback.run();
-                    return mockResult;
+                    return doCall(invocation);
                 });
 
         when(redeployFunction.performRedeploy(testServer))
@@ -232,13 +232,13 @@ class ToolDecoratorServiceTest {
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
 
-        toolDecoratorService.init();
+        toolDecoratorService.doPerformInit();
 
         // When (single server should trigger fallback)
         ToolDecoratorService.RedeployResult result = toolDecoratorService.parseRedeployResult(redeployRequest, testServer);
 
-        // Then
-        verify(redeployFunction).performRedeploy(testServer);
+        assertThat(result.deployErr()).isNotBlank();
+
     }
 
     @Test
@@ -339,9 +339,7 @@ class ToolDecoratorServiceTest {
 
         when(dynamicMcpToolCallbackProvider.killClientAndThen(eq("test-rollback-server"), any()))
                 .thenAnswer(invocation -> {
-                    Runnable callback = invocation.getArgument(1);
-                    callback.run();
-                    return mockResult;
+                    return doCall(invocation);
                 });
 
         when(redeployFunction.performRedeploy(testServer))
@@ -352,7 +350,7 @@ class ToolDecoratorServiceTest {
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
 
-        toolDecoratorService.init();
+        toolDecoratorService.doPerformInit();
 
         // When
         toolDecoratorService.parseRedeployResult(redeployRequest, testServer);
@@ -365,41 +363,37 @@ class ToolDecoratorServiceTest {
     void shouldNotNotifyToolsListChangedAfterRollback() {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("test-rollback-server");
-        
-        Redeploy.RedeployResultWrapper mockResult = Redeploy.RedeployResultWrapper.builder()
-                .redeployResult(ToolDecoratorService.RedeployResult.builder()
-                        .tools(Set.of("rolled-back-tool"))
-                        .deployState(ToolDecoratorService.DeployState.DEPLOY_FAIL)
-                        .rollbackState(ToolDecoratorService.DeployState.ROLLBACK_SUCCESSFUL)
-                        .build())
-                .newToolState(ToolDecoratorService.McpServerToolState.builder()
-                        .toolCallbackProviders(new ArrayList<>())
-                        .build())
-                .redeploy(redeployRequest)
-                .build();
 
         when(dynamicMcpToolCallbackProvider.killClientAndThen(eq("test-rollback-server"), any()))
-                .thenAnswer(invocation -> {
-                    Runnable callback = invocation.getArgument(1);
-                    callback.run();
-                    return mockResult;
-                });
+                .thenAnswer(ToolDecoratorServiceTest::doCall);
 
+        AtomicInteger  counter = new AtomicInteger(0);
         when(redeployFunction.performRedeploy(testServer))
-                .thenReturn(RedeployFunction.RedeployDescriptor.builder().isSuccess(false).err("Deploy failed").build());
+                .thenAnswer(i -> {
+                    if (counter.getAndIncrement() == 0)
+                        return RedeployFunction.RedeployDescriptor.builder().isSuccess(false).err("Deploy failed").build();
+                    return RedeployFunction.RedeployDescriptor.builder().isSuccess(true)
+                            .build();
+                });
 
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
+        when(mockClient.isInitialized()).thenReturn(true);
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
 
-        toolDecoratorService.init();
+        toolDecoratorService.doPerformInit();
 
         // When
         toolDecoratorService.parseRedeployResult(redeployRequest, testServer);
 
         // Then
         verify(mcpSyncServer, times(1)).notifyToolsListChanged(); // Only once in init, not after rollback
+    }
+
+    private static Object doCall(InvocationOnMock invocation) {
+        Supplier callback = invocation.getArgument(1);
+        return callback.get();
     }
 
     @Test
@@ -413,7 +407,7 @@ class ToolDecoratorServiceTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(testTool), null));
 
         // When
-        toolDecoratorService.init();
+        toolDecoratorService.doPerformInit();
 
         // Then
         verify(mcpSyncServer, atLeastOnce()).addTool(any());

@@ -353,13 +353,19 @@ public class ToolDecoratorService {
     }
 
     RedeployResult parseRedeployResult(ToolModels.Redeploy i, ToolGatewayConfigProperties.DeployableMcpServer toRedeploy) {
+        if (!toolGatewayConfigProperties.getDeployableMcpServers().containsKey(i.deployService())) {
+            return ToolDecoratorService.RedeployResult.builder()
+                    .deployErr("%s was not contained in set of deployable MCP servers %s - please update."
+                            .formatted(i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers().keySet()))
+                    .build();
+        }
         var r = redeploy.doRedeploy(i, toRedeploy, this.mcpServerToolStates.remove(i.deployService()));
         this.mcpServerToolStates.put(i.deployService(), r.newToolState());
-//      ok (won't deadlock) because it's in a callback
-        getRedeploy(this.mcpServerToolStates);
 
-        if (r.redeployResult().deployState().didToolListChange())
+        if (r.didToolListChange()) {
+            getRedeploy(this.mcpServerToolStates);
             mcpSyncServer.notifyToolsListChanged();
+        }
 
         return r.redeployResult();
     }

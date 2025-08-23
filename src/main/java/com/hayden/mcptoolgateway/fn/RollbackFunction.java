@@ -35,7 +35,7 @@ public class RollbackFunction {
                             .deployState(deployState)
                             .r(r)
                             .build());
-            if (redeployResultWrapper.redeployResult().deployState().didRollback()) {
+            if (redeployResultWrapper.redeployResult().rollbackState().didRollback()) {
                 return deploy.handleDeploy(
                         DeployService.DeployDescription.AfterRollbackSuccess
                                 .builder()

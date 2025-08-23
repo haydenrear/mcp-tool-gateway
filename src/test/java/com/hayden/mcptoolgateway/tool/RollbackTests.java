@@ -16,6 +16,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -80,10 +81,11 @@ public class RollbackTests {
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
-        when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
+        McpSchema.Tool testTool = new McpSchema.Tool("init-tool", "Test tool for init", JsonSchemaGenerator.generateForType(String.class));
+        when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(testTool), null));
 
         // When
-        toolDecoratorService.init();
+        toolDecoratorService.doPerformInit();
 
         // Then
         verify(mcpSyncServerDelegate, atLeastOnce()).addTool(any());
@@ -105,20 +107,8 @@ public class RollbackTests {
 
         when(dynamicMcpToolCallbackProvider.killClientAndThen(eq("test-rollback-server"), any()))
                 .thenAnswer(invocation -> {
-                    Runnable callback = invocation.getArgument(1);
-                    callback.run();
-                    return Redeploy.RedeployResultWrapper.builder()
-                            .redeployResult(ToolDecoratorService.RedeployResult.builder()
-                                    .deployState(ToolDecoratorService.DeployState.DEPLOY_FAIL)
-                                    .rollbackState(ToolDecoratorService.DeployState.ROLLBACK_FAIL)
-                                    .deployErr("Deployment failed")
-                                    .tools(Set.of("rolled-back-tool"))
-                                    .build())
-                            .newToolState(ToolDecoratorService.McpServerToolState.builder()
-                                    .toolCallbackProviders(new ArrayList<>())
-                                    .build())
-                            .redeploy(redeployRequest)
-                            .build();
+                    Supplier<?> callback = invocation.getArgument(1);
+                    return callback.get();
                 });
 
         when(redeployFunction.performRedeploy(testServer)).thenReturn(failedDescriptor);
@@ -211,19 +201,8 @@ public class RollbackTests {
 
         when(dynamicMcpToolCallbackProvider.killClientAndThen(eq("test-rollback-server"), any()))
                 .thenAnswer(invocation -> {
-                    Runnable callback = invocation.getArgument(1);
-                    callback.run();
-                    return Redeploy.RedeployResultWrapper.builder()
-                            .redeployResult(ToolDecoratorService.RedeployResult.builder()
-                                    .deployErr("Error performing redeploy of test-rollback-server.")
-                                    .deployState(ToolDecoratorService.DeployState.DEPLOY_FAIL)
-                                    .rollbackState(ToolDecoratorService.DeployState.ROLLBACK_FAIL)
-                                    .build())
-                            .newToolState(ToolDecoratorService.McpServerToolState.builder()
-                                    .toolCallbackProviders(new ArrayList<>())
-                                    .build())
-                            .redeploy(redeployRequest)
-                            .build();
+                    Supplier<?> callback = invocation.getArgument(1);
+                    return callback.get();
                 });
 
         when(redeployFunction.performRedeploy(serverWithoutBinary)).thenReturn(failedDescriptor);
@@ -251,10 +230,11 @@ public class RollbackTests {
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
-        when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
+        McpSchema.Tool redeployTool = new McpSchema.Tool("redeploy-tool", "Test redeploy tool", JsonSchemaGenerator.generateForType(String.class));
+        when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(redeployTool), null));
 
         // When
-        toolDecoratorService.init();
+        toolDecoratorService.doPerformInit();
 
         // Then - Verify the full integration works
         assertThat(setClients.noClientKey("test-rollback-server")).isFalse();

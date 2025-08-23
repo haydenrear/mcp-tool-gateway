@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 @Slf4j
 public class Redeploy {
@@ -28,7 +30,36 @@ public class Redeploy {
     public record RedeployResultWrapper(
             ToolDecoratorService.RedeployResult redeployResult,
             ToolDecoratorService.McpServerToolState newToolState,
-            ToolModels.Redeploy redeploy) {}
+            ToolModels.Redeploy redeploy) {
+
+        public boolean didToolListChange() {
+            return Optional.ofNullable(redeployResult)
+                    .flatMap(r -> Optional.ofNullable(r.rollbackState()))
+                    .map(ToolDecoratorService.DeployState::didToolListChange)
+                    .or(() -> {
+                        return Optional.ofNullable(redeployResult)
+                                .flatMap(r -> Optional.ofNullable(r.deployState()))
+                                .map(ToolDecoratorService.DeployState::didToolListChange)    ;
+                    })
+                    .orElse(false);
+        }
+
+
+        public boolean didRollback() {
+            return Optional.ofNullable(redeployResult)
+                    .flatMap(r -> Optional.ofNullable(r.rollbackState()))
+                    .map(ToolDecoratorService.DeployState::didRollback)
+                    .orElse(false);
+        }
+
+        public boolean didDeploy() {
+            return Optional.ofNullable(redeployResult)
+                    .flatMap(r -> Optional.ofNullable(r.deployState()))
+                    .map(ToolDecoratorService.DeployState::didRedeploy)
+                    .orElse(false);
+        }
+
+    }
 
     RedeployResultWrapper doRedeploy(ToolModels.Redeploy redeploy,
                                      ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer,
