@@ -1,5 +1,6 @@
 package com.hayden.mcptoolgateway.tool;
 
+import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -69,7 +70,7 @@ class SetClientsTest {
         reset(mcpSyncServer, dynamicMcpToolCallbackProvider, mockClient);
     }
 
-    //@Test
+    @Test
     void shouldReturnTrueWhenClientHasError() {
         // Given
         String clientName = "test-rollback-server";
@@ -85,7 +86,7 @@ class SetClientsTest {
         assertThat(setClients.clientHasError(clientName)).isTrue();
     }
 
-    //@Test
+    @Test
     void shouldReturnFalseWhenClientHasNoError() {
         // Given
         String clientName = "test-rollback-server";
@@ -94,7 +95,7 @@ class SetClientsTest {
         assertThat(setClients.clientHasError(clientName)).isFalse();
     }
 
-    //@Test
+    @Test
     void shouldReturnTrueWhenHasClient() {
         // Given
         String clientName = "test-rollback-server";
@@ -110,7 +111,7 @@ class SetClientsTest {
         assertThat(setClients.hasClient(clientName)).isTrue();
     }
 
-    //@Test
+    @Test
     void shouldReturnTrueWhenNoMcpClient() {
         // Given
         String clientName = "test-rollback-server";
@@ -124,7 +125,7 @@ class SetClientsTest {
         assertThat(setClients.noMcpClient(clientName)).isTrue();
     }
 
-    //@Test
+    @Test
     void shouldReturnTrueWhenNoClientKey() {
         // Given
         String clientName = "non-existent-client";
@@ -133,7 +134,7 @@ class SetClientsTest {
         assertThat(setClients.noClientKey(clientName)).isTrue();
     }
 
-    //@Test
+    @Test
     void shouldReturnTrueWhenClientInitialized() {
         // Given
         String clientName = "test-rollback-server";
@@ -150,7 +151,7 @@ class SetClientsTest {
         assertThat(setClients.clientInitialized(clientName)).isTrue();
     }
 
-    //@Test
+    @Test
     void shouldReturnErrorMessage() {
         // Given
         String clientName = "test-rollback-server";
@@ -166,7 +167,7 @@ class SetClientsTest {
         assertThat(error).isEqualTo(errorMessage);
     }
 
-    //@Test
+    @Test
     void shouldReturnFalseWhenMcpServerNotAvailable() {
         // Given
         String clientName = "test-rollback-server";
@@ -183,7 +184,7 @@ class SetClientsTest {
         assertThat(setClients.isMcpServerAvailable(clientName)).isFalse();
     }
 
-    //@Test
+    @Test
     void shouldSuccessfullySetMcpClientWithTools() throws Exception {
         // Given
         String clientName = "test-rollback-server";
@@ -206,7 +207,7 @@ class SetClientsTest {
         verify(mcpSyncServer).addTool(any());
     }
 
-    //@Test
+    @Test
     void shouldHandleToolCreationException() throws Exception {
         // Given
         String clientName = "test-rollback-server";
@@ -225,7 +226,7 @@ class SetClientsTest {
         assertThat(result.wasSuccessful()).isTrue();
     }
 
-    //@Test
+    @Test
     void shouldUpdateExistingToolsCorrectly() throws Exception {
         // Given
         String clientName = "test-rollback-server";
@@ -263,7 +264,7 @@ class SetClientsTest {
         verify(mcpSyncServer).removeTool("test-rollback-server.old-tool");
     }
 
-    //@Test
+    @Test
     void shouldCreateSetClientErrorWhenBuildClientFails() {
         // Given
         String clientName = "test-rollback-server";
@@ -277,7 +278,7 @@ class SetClientsTest {
         assertThat(result.err()).isEqualTo("Build failed");
     }
 
-    //@Test
+    @Test
     void shouldRemoveToolsWhenCreatingErrorWithExistingState() {
         // Given
         String clientName = "test-rollback-server";
@@ -304,7 +305,7 @@ class SetClientsTest {
         verify(mcpSyncServer).removeTool("existing-tool");
     }
 
-    //@Test
+    @Test
     void shouldHandleListToolsException() {
         // Given
         String clientName = "test-rollback-server";
@@ -321,7 +322,7 @@ class SetClientsTest {
         assertThat(result.err()).isEqualTo("List tools failed");
     }
 
-    //@Test
+    @Test
     void shouldReturnCorrectErrorMessageForNoError() {
         // Given
         String clientName = "test-rollback-server";
@@ -333,7 +334,7 @@ class SetClientsTest {
         assertThat(error).isEqualTo("Client has no error.");
     }
 
-    //@Test
+    @Test
     void shouldHandleMcpServerAvailabilityCheck() {
         // Given
         String clientName = "test-rollback-server";
@@ -350,7 +351,7 @@ class SetClientsTest {
         assertThat(setClients.isMcpServerAvailable(clientName)).isTrue();
     }
 
-    //@Test
+    @Test
     void shouldHandleExceptionInMcpServerAvailabilityCheck() {
         // Given
         String clientName = "test-rollback-server";

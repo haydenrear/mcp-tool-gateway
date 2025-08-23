@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.ai.util.json.schema.JsonSchemaGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -73,7 +74,7 @@ public class RollbackTests {
         reset(redeployFunction, dynamicMcpToolCallbackProvider, mcpSyncServerDelegate, mockClient);
     }
 
-    //@Test
+    @Test
     void shouldInitializeToolDecoratorServiceSuccessfully() {
         // Given
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
@@ -89,7 +90,7 @@ public class RollbackTests {
         verify(mcpSyncServerDelegate).notifyToolsListChanged();
     }
 
-    //@Test
+    @Test
     void shouldHandleRedeployWithRollbackScenario() throws IOException {
         // Given
         Files.write(testServer.copyToArtifactPath(), "original copyToArtifactPath content".getBytes());
@@ -141,7 +142,7 @@ public class RollbackTests {
                 .isTrue();
     }
 
-    //@Test
+    @Test
     void shouldHandleSetClientsWithConnectionFailure() {
         // Given
         String clientName = "test-rollback-server";
@@ -163,7 +164,7 @@ public class RollbackTests {
         assertThat(setClients.clientHasError(clientName)).isTrue();
     }
 
-    //@Test
+    @Test
     void shouldHandleSuccessfulClientConnection() {
         // Given
         String clientName = "test-rollback-server";
@@ -189,7 +190,7 @@ public class RollbackTests {
         verify(mcpSyncServerDelegate).addTool(any());
     }
 
-    //@Test
+    @Test
     void shouldHandleRedeployWithoutRollbackWhenBinaryNotExists() throws IOException {
         // Given
         Path nonExistentBinary = testServer.directory().resolve("non-existent.jar");
@@ -244,7 +245,7 @@ public class RollbackTests {
         assertThat(result.redeployResult().deployState().didRollback()).isFalse();
     }
 
-    //@Test
+    @Test
     void shouldIntegrateAllComponentsInRedeployFlow() {
         // Given
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
@@ -261,7 +262,7 @@ public class RollbackTests {
         verify(mcpSyncServerDelegate).notifyToolsListChanged();
     }
 
-    //@Test
+    @Test
     void shouldHandleToolCreationAndRemoval() {
         // Given
         String clientName = "test-rollback-server";

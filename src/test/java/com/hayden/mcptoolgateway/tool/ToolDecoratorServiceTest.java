@@ -1,5 +1,6 @@
 package com.hayden.mcptoolgateway.tool;
 
+import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -74,7 +75,7 @@ class ToolDecoratorServiceTest {
         reset(mcpSyncServer, redeployFunction, dynamicMcpToolCallbackProvider, mockClient);
     }
 
-    //@Test
+    @Test
     void shouldInitializeSuccessfullyWithValidServers() {
         // Given
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
@@ -90,7 +91,7 @@ class ToolDecoratorServiceTest {
         verify(mcpSyncServer).notifyToolsListChanged();
     }
 
-    //@Test
+    @Test
     void shouldHandleInitializationFailureGracefully() {
         // Given - failOnMcpClientInit is already set to false in yml
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
@@ -101,7 +102,7 @@ class ToolDecoratorServiceTest {
                 .doesNotThrowAnyException();
     }
 
-    //@Test
+    @Test
     void shouldThrowExceptionWhenFailOnInitIsTrue() {
         // Given
         toolGatewayConfigProperties.setFailOnMcpClientInit(true);
@@ -115,7 +116,7 @@ class ToolDecoratorServiceTest {
                 .hasMessage("Connection failed");
     }
 
-    //@Test
+    @Test
     void shouldCreateRedeployToolWithCorrectDescription() {
         // Given
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
@@ -137,7 +138,7 @@ class ToolDecoratorServiceTest {
         verify(mcpSyncServer).addTool(any());
     }
 
-    //@Test
+    @Test
     void shouldHandleRedeployOfValidServer() throws Exception {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("test-rollback-server");
@@ -181,7 +182,7 @@ class ToolDecoratorServiceTest {
         verify(redeployFunction).performRedeploy(testServer);
     }
 
-    //@Test
+    @Test
     void shouldHandleRedeployOfInvalidServer() {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("non-existent-server");
@@ -201,7 +202,7 @@ class ToolDecoratorServiceTest {
         assertThat(result.deployErr()).contains("non-existent-server was not contained in set of deployable MCP servers");
     }
 
-    //@Test
+    @Test
     void shouldHandleSingleServerFallbackScenario() {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("wrong-server-name");
@@ -240,7 +241,7 @@ class ToolDecoratorServiceTest {
         verify(redeployFunction).performRedeploy(testServer);
     }
 
-    //@Test
+    @Test
     void shouldGenerateCorrectErrorInfoForFailedServers() {
         // Given
         ToolDecoratorService.McpServerToolState failedState = ToolDecoratorService.McpServerToolState.builder()
@@ -266,7 +267,7 @@ class ToolDecoratorServiceTest {
         verify(mcpSyncServer).addTool(any());
     }
 
-    //@Test
+    @Test
     void shouldHandleToolStateWithNoProviders() {
         // Given
         ToolDecoratorService.McpServerToolState emptyState = ToolDecoratorService.McpServerToolState.builder()
@@ -290,7 +291,7 @@ class ToolDecoratorServiceTest {
         verify(mcpSyncServer).addTool(any());
     }
 
-    //@Test
+    @Test
     void shouldParseErrorCorrectlyForVariousFailureScenarios() {
         // Given
         ToolDecoratorService.McpServerToolState stateWithDeployError = ToolDecoratorService.McpServerToolState.builder()
@@ -319,7 +320,7 @@ class ToolDecoratorServiceTest {
         assertThat(error.toString()).contains("Deployment error");
     }
 
-    //@Test
+    @Test
     void shouldNotifyToolsListChangedAfterSuccessfulRedeploy() {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("test-rollback-server");
@@ -360,7 +361,7 @@ class ToolDecoratorServiceTest {
         verify(mcpSyncServer, atLeast(2)).notifyToolsListChanged(); // Once in init, once after redeploy
     }
 
-    //@Test
+    @Test
     void shouldNotNotifyToolsListChangedAfterRollback() {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("test-rollback-server");
@@ -401,7 +402,7 @@ class ToolDecoratorServiceTest {
         verify(mcpSyncServer, times(1)).notifyToolsListChanged(); // Only once in init, not after rollback
     }
 
-    //@Test
+    @Test
     void shouldHandleToolsWithValidConfiguration() {
         // Given
         McpSchema.Tool testTool = new McpSchema.Tool("test-tool", "A test tool", JsonSchemaGenerator.generateForType(String.class));
