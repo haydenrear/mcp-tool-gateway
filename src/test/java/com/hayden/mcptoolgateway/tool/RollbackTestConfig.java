@@ -10,8 +10,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 
 @Configuration
-@Profile("test")
-class TestConfig {
+@Profile("rollback-tests")
+class RollbackTestConfig {
+
+    @Bean
+    @Primary
+    public DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider() {
+        return Mockito.mock(DynamicMcpToolCallbackProvider.class);
+    }
 
     @Bean
     @Primary
@@ -30,4 +36,5 @@ class TestConfig {
     public McpSyncServerDelegate mcpSyncServerDelegate() {
         return Mockito.mock(McpSyncServerDelegate.class);
     }
+
 }

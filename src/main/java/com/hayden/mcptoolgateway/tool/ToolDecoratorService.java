@@ -198,7 +198,7 @@ public class ToolDecoratorService {
             doPerformInit();
     }
 
-    void doPerformInit() {
+    public void doPerformInit() {
         try {
             lock.writeLock().lock();
             buildTools();

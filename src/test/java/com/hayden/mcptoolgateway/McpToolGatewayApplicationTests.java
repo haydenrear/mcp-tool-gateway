@@ -41,36 +41,20 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test"})
 class McpToolGatewayApplicationTests {
 
     @Autowired
     DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
-    @MockitoBean
-    RedeployFunction redeployFunction;
-
-    @BeforeEach
-    public void setupRedeploy() {
-        AtomicInteger i = new AtomicInteger(0);
-        Mockito.when(redeployFunction.performRedeploy(any()))
-                .thenAnswer(invocation -> {
-                    if (i.getAndIncrement() == 0) {
-                        return RedeployFunction.RedeployDescriptor.builder().isSuccess(true).build();
-                    }
-
-                    if (i.get() == 1) {
-
-                    }
-
-                    return RedeployFunction.RedeployDescriptor.builder().isSuccess(true).build();
-                });
-    }
+    @Autowired
+    ToolDecoratorService toolDecoratorService;
 
     @Test
     void containsTestJarActiveClient() {
+        toolDecoratorService.doPerformInit();
         assertThat(new File("ctx_bin/test-mcp-server.jar").exists()).isTrue();
-        assertThat(dynamicMcpToolCallbackProvider.containsClient("test-mcp-server")).isTrue();
-        assertThat(dynamicMcpToolCallbackProvider.containsActiveClient("test-mcp-server")).isTrue();
+        assertThat(dynamicMcpToolCallbackProvider.containsClient("test-rollback-server")).isTrue();
+        assertThat(dynamicMcpToolCallbackProvider.containsActiveClient("test-rollback-server")).isTrue();
     }
 
 }

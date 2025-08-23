@@ -83,7 +83,7 @@ public class ToolGatewayConfig {
 
     @SneakyThrows
     @Bean
-    @Profile({"test", "rollback-tests"})
+    @Profile({"rollback-tests"})
     public StdioServerTransportProvider transportProvider(ObjectMapper objectMapper,
                                                           WritableInput writableInput) {
 
