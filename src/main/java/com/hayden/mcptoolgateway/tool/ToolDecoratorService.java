@@ -240,16 +240,6 @@ public class ToolDecoratorService {
         StringBuilder descriptions = new StringBuilder();
 
         for (var t : this.toolGatewayConfigProperties.getDeployableMcpServers().entrySet()) {
-            if (!newMcpServerState.containsKey(t.getKey())) {
-                descriptions.append("""
-                        ## MCP Server Name
-                        %s
-                        
-                        ## MCP Server Error Information
-                        
-                        This MCP server is not currently available or has no tools.
-                        """.formatted(t.getKey()));
-            }
             var serverState = newMcpServerState.get(t.getKey());
             if (serverState == null || CollectionUtils.isEmpty(serverState.toolCallbackProviders())) {
                 StringBuilder err = parseErr(serverState, t.getKey());
@@ -285,7 +275,26 @@ public class ToolDecoratorService {
                     
                     ### MCP Server Tools
                     %s
+                    
                     """.formatted(t.getKey(), tools));
+
+            if (t.getValue().lastDeploy != null && !t.getValue().lastDeploy().isSuccess()) {
+                descriptions.append("""
+                        ### MCP Server Error Information
+                        """);
+                if (StringUtils.isBlank(t.getValue().lastDeploy().err())) {
+                    descriptions.append("""
+                            Redeploy failed for MCP server last time with error: %s
+                            """.formatted(t.getValue().lastDeploy().err()));
+                }
+                if (t.getValue().lastDeploy().log() != null
+                    && t.getValue().lastDeploy().log().toFile().exists()) {
+                    descriptions.append("""
+                            If you would like to search through the log for the deploy, the file path is %s.
+                            """.formatted(t.getValue().lastDeploy().log()));
+                }
+
+            }
         }
 
         StaticToolCallbackProvider redeployToolCallbackProvider = new StaticToolCallbackProvider(
@@ -326,7 +335,7 @@ public class ToolDecoratorService {
                                 If there is an issue with redeploy and the tool is able, then it will be rolled back to the previous version
                                 and the error will be provided below.
                                 
-                                # Underlying MCP Servers and Tools that can be Redeployed
+                                # Underlying MCP Servers and Tools that can be Redeployed, Along With Information About Deployments
                                 
                                 %s
                                 """.formatted(descriptions.toString()))
@@ -334,8 +343,7 @@ public class ToolDecoratorService {
                         .toolCallResultConverter((result, returnType) -> {
                             try {
                                 return objectMapper.writeValueAsString(result);
-                            } catch (
-                                    JsonProcessingException e) {
+                            } catch (JsonProcessingException e) {
                                 return "Failed to process result %s with error message %s"
                                         .formatted(returnType, e.getMessage());
                             }
