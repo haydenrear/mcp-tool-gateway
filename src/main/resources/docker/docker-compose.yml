@@ -1,14 +1,14 @@
-services:
-  function-calling:
-    image: localhost:5001/function-calling
-    container_name: function-calling
-    networks:
-      function-calling-network:
-    ports:
-      - "8084:8084"
-    environment:
-      SERVER_PORT: 8084
-      PG_HOST: host.docker.internal
+#services:
+#  function-calling:
+#    image: localhost:5001/function-calling
+#    container_name: function-calling
+#    networks:
+#      function-calling-network:
+#    ports:
+#      - "8084:8084"
+#    environment:
+#      SERVER_PORT: 8084
+#      PG_HOST: host.docker.internal
 #  function-calling-postgres:
 #    image: localhost:5001/postgres-pgvector
 #    container_name: function-calling-postgres
@@ -21,7 +21,7 @@ services:
 #      - function-calling:/var/lib/postgresql/embedding
 #    ports:
 #      - "5401:5432"
-volumes:
-  function-calling:
-networks:
-  function-calling-network:
+#volumes:
+#  function-calling:
+#networks:
+#  function-calling-network:

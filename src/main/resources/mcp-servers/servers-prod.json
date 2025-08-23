@@ -5,7 +5,10 @@
       "args": [
         "-jar",
         "{{PROJ_DIR}}/ctx_bin/commit-diff-context-mcp.jar"
-      ]
+      ],
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "prod"
+      }
     }
   }
 }

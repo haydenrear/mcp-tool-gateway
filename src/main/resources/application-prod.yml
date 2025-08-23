@@ -2,14 +2,16 @@ gateway:
   deployable-mcp-servers:
     commit-diff-context-mcp:
       name: commit-diff-context-mcp
+      command: bash
       arguments: gradlew commit-diff-context-mcp:build -x test
       directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
       copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin
       copy-from-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
   fail-on-mcp-client-init: false
-  mcp-servers-json-location: classpath:mcp-servers/servers-prod.json
+  mcp-servers-json-location: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/build/resources/main/mcp-servers/servers-prod.json
 
 server.port: 8081
+
 
 otel:
   instrumentation:
@@ -32,8 +34,8 @@ management:
         enabled: false
 
 graphql-props:
-  port: 8080
-  url: localhost
+  port: 8084
+  url: http://localhost:8084/graphql
 
 spring:
   ai:
@@ -44,4 +46,5 @@ spring:
         enabled: true
   docker:
     compose:
+      file: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/src/main/resources/docker/docker-compose.yml
       enabled: false
