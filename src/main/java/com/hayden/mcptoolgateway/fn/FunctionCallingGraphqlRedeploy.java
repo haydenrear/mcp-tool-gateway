@@ -84,7 +84,7 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
                         .executionTime()
                         .exitCode()
                         .registrationId()
-                        .output()
+                        .matchedOutput()
                         .buildLog()
                 )
                 .retrieveSync()
