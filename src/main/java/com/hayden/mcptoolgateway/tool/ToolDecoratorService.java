@@ -344,7 +344,7 @@ public class ToolDecoratorService {
                             try {
                                 return objectMapper.writeValueAsString(result);
                             } catch (JsonProcessingException e) {
-                                return "Failed to process result %s with error message %s"
+                                return "Failed to process result %s with error getMessage %s"
                                         .formatted(returnType, e.getMessage());
                             }
                         })

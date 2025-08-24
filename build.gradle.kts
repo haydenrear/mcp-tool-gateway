@@ -5,6 +5,7 @@ plugins {
     id("com.hayden.dgs-graphql")
     id("com.hayden.log")
     id("com.hayden.docker-compose")
+    id("com.hayden.paths")
 }
 
 group = "com.hayden"
@@ -57,39 +58,8 @@ tasks.test {
     dependsOn("copyTestMcpServer", "processMcpServerJson")
 }
 
-tasks.bootJar {
-    dependsOn(project(":function-calling").tasks.named("copyJar"))
-}
-
-tasks.register("processMcpServerJson") {
-    group = "custom"
-    description = "Processes server.json and replaces environment variables"
-    dependsOn("processResources", "processTestResources")
-
-    fun doFile(value: String, buildDir: String) {
-        file(layout.projectDirectory).resolve(value)
-            .listFiles { it -> it.name.endsWith(".json") }
-            ?.forEach {
-                println("Processing ${it.name}")
-                val inputPath = it
-                val outputPath = file(layout.buildDirectory).resolve("${buildDir}/${inputPath.name}")
-
-                if (!inputPath.exists()) {
-                    throw GradleException("File not found: ${inputPath.absolutePath}")
-                }
-
-                var originalContent = inputPath.readText()
-                originalContent = originalContent.replace("{{PROJ_DIR}}", layout.projectDirectory.toString())
-
-                outputPath.parentFile.mkdirs()
-                outputPath.writeText(originalContent)
-                println("Processed file written to: ${outputPath.absolutePath}")
-
-            }
-    }
-    doLast {
-        doFile("src/main/resources/mcp-servers", "resources/main/mcp-servers")
-        doFile("src/test/resources/test-mcp-servers", "resources/test/test-mcp-servers")
-    }
-}
+//TODO: for docker
+//tasks.bootJar {
+//    dependsOn(project(":function-calling").tasks.named("copyJar"))
+//}
 
