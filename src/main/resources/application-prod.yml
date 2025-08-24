@@ -5,7 +5,7 @@ gateway:
       command: bash
       arguments: gradlew commit-diff-context-mcp:build -x test
       directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
-      copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin/commit-diff-context.jar
+      copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin
       copy-from-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
   fail-on-mcp-client-init: false
   mcp-servers-json-location: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/build/resources/main/mcp-servers/servers-prod.json

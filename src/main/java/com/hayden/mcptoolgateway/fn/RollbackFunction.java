@@ -63,14 +63,15 @@ public class RollbackFunction {
     public void prepareRollback(ToolGatewayConfigProperties.DeployableMcpServer d) {
         if (d.copyToArtifactPath().toFile().exists()) {
             try {
-                Path toCopyTo = toolGatewayConfigProperties.getArtifactCache().resolve(d.copyToArtifactPath().toFile().getName());
-                Path toCopyFrom = d.copyToArtifactPath();
+                if (!Files.exists(toolGatewayConfigProperties.getArtifactCache())
+                        && !toolGatewayConfigProperties.getArtifactCache().toFile().mkdirs()) {
+                    log.error("Failed to create artifact cache directory");
+                }
+                Path toCopyTo = toolGatewayConfigProperties.getArtifactCache().resolve(d.getCopyFromArtifactPath().toFile().getName());
+                Path toCopyFrom = d.copyToArtifactPath().resolve(d.getCopyFromArtifactPath().toFile().getName());
                 if (!toCopyFrom.toFile().exists()) {
                     log.error("Copy from {} did not exist when redeploying.", toCopyFrom);
                 } else {
-                    if (Files.isDirectory(toCopyTo)) {
-                        toCopyTo = toCopyTo.resolve(toCopyFrom.toFile().getName());
-                    }
                     log.info("Copying {} to {}", toCopyFrom, toCopyTo);
                     Files.copy(
                             toCopyFrom,
