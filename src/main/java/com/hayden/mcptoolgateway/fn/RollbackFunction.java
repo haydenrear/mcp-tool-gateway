@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 import static com.hayden.mcptoolgateway.tool.DeployService.performedRedeployResultRollback;
@@ -62,12 +63,22 @@ public class RollbackFunction {
     public void prepareRollback(ToolGatewayConfigProperties.DeployableMcpServer d) {
         if (d.copyToArtifactPath().toFile().exists()) {
             try {
-                Files.copy(
-                        d.copyToArtifactPath(),
-                        toolGatewayConfigProperties.getArtifactCache().resolve(d.copyToArtifactPath().toFile().getName()),
-                        StandardCopyOption.REPLACE_EXISTING);
+                Path toCopyTo = toolGatewayConfigProperties.getArtifactCache().resolve(d.copyToArtifactPath().toFile().getName());
+                Path toCopyFrom = d.copyToArtifactPath();
+                if (!toCopyFrom.toFile().exists()) {
+                    log.error("Copy from {} did not exist when redeploying.", toCopyFrom);
+                } else {
+                    if (Files.isDirectory(toCopyTo)) {
+                        toCopyTo = toCopyTo.resolve(toCopyFrom.toFile().getName());
+                    }
+                    log.info("Copying {} to {}", toCopyFrom, toCopyTo);
+                    Files.copy(
+                            toCopyFrom,
+                            toCopyTo,
+                            StandardCopyOption.REPLACE_EXISTING);
+                }
             } catch (IOException e) {
-                log.error("Failed to copy MCP server artifact to cache.");
+                log.error("Failed to copy MCP server artifact to cache: {}.", e.getMessage(), e);
             }
         }
     }

@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Set;
 
@@ -54,7 +55,7 @@ public class ToolGatewayConfigProperties {
 
     Map<String, DeployableMcpServer> deployableMcpServers;
 
-    Path artifactCache;
+    Path artifactCache = Paths.get(System.getProperty("user.home"), ".cache", "tool-gateway");
 
     String mcpServersJsonLocation;
 
