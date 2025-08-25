@@ -2,6 +2,7 @@ server.port: 8081
 logging.config: classpath:logback-mcp-tool-gateway.xml
 gateway:
   artifact-cache: file:.cache
+  kill-script: file:{{BUILD_DIR}}/resources/main/kill-cdc.sh
 
 otel:
   instrumentation:
@@ -45,8 +46,8 @@ spring:
 
   docker:
     compose:
-      enabled: true
-      file: classpath:docker/docker-compose.yml
+      file: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/src/main/resources/docker/docker-compose.yml
+      enabled: false
       skip:
         in-tests: true
       lifecycle-management: start_and_stop

@@ -65,4 +65,6 @@ public class ToolGatewayConfigProperties {
 
     boolean startMcpServerOnInitialize=true;
 
+    Path killScript;
+
 }
