@@ -10,17 +10,19 @@ import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.tool.StaticToolCallbackProvider;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Component
@@ -201,7 +203,7 @@ public class SetClients {
 
 
             var newTools = listToolsResult.tools().stream()
-                    .map(t -> Map.entry("%s.%s".formatted(doReplaceName(m.client.getClientInfo().name()), t.name()), t))
+                    .map(t -> Map.entry(getToolName(m.client.getClientInfo().name(), t.name()), t))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
             log.info("Updating existing {}", newTools.keySet());
@@ -260,25 +262,11 @@ public class SetClients {
     private @NotNull ToolDecoratorService.CreateToolCallbackProviderResult createToolCallbackProvider(ToolDecoratorService.DelegateMcpSyncClient mcpSyncClient,
                                                                                                       McpSchema.Tool t) {
         try {
-            String formatted = getToolName(mcpSyncClient.client.getClientInfo().name(), t.name());
+            var f = buildPassThroughToolCallback(mcpSyncClient, t);
+
             return ToolDecoratorService.CreateToolCallbackProviderResult.builder()
                     .toolName(t)
-                    .provider(new StaticToolCallbackProvider(
-                            FunctionToolCallback
-                                    .builder(formatted, (i, o) -> {
-                                        try {
-                                            var tc = objectMapper.writeValueAsString(i);
-                                            return mcpSyncClient.callTool(new McpSchema.CallToolRequest(t.name(), tc));
-                                        } catch (Exception e) {
-                                            log.error("Error performing tool call {}", e.getMessage(), e);
-                                            return "Could not process tool call result %s from tool %s with err %s."
-                                                    .formatted(String.valueOf(i), t.name(), e.getMessage());
-                                        }
-                                    })
-                                    .description(t.description())
-                                    .inputSchema(getInputSchema(t))
-                                    .inputType(String.class)
-                                    .build()))
+                    .provider(new StaticToolCallbackProvider(f))
                     .build();
         } catch (JsonProcessingException e) {
             log.error("Error resolving  tool callback provider for tools {}", t.name(), e);
@@ -288,9 +276,59 @@ public class SetClients {
         }
     }
 
+    private @NotNull PassthroughFunctionToolCallback buildPassThroughToolCallback(ToolDecoratorService.DelegateMcpSyncClient mcpSyncClient, McpSchema.Tool t) throws JsonProcessingException {
+        String toolName = getToolName(mcpSyncClient.client.getClientInfo().name(), t.name());
+        var toolDefinition = DefaultToolDefinition.builder()
+                .name(toolName)
+                .description(t.description())
+                .inputSchema(objectMapper.writeValueAsString(t.inputSchema()))
+                .build();
+
+        BiFunction<String, ToolContext, String> toolFunction = (i, o) -> {
+            log.info("Running tool callback for {}.", toolName);
+            try {
+                McpSchema.CallToolResult value = mcpSyncClient.callTool(new McpSchema.CallToolRequest(t.name(), i));
+                if (value.isError() && CollectionUtils.isEmpty(value.content())) {
+                    return """
+                            { "error": "true", "message": "Unknown error." }
+                            """;
+                } else {
+                    if (value.content().size() == 1) {
+                        return parseResponseItem(value.content().getFirst());
+                    } else {
+                        log.error("Found content size greater than 1. Not knowing what to do. Only returning first.");
+                        return parseResponseItem(value.content().getFirst());
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Error performing tool call {}", e.getMessage(), e);
+                return "Could not process tool call result %s from tool %s with err %s."
+                        .formatted(String.valueOf(i), t.name(), e.getMessage());
+            }
+        };
+        var f = new PassthroughFunctionToolCallback(toolFunction, toolDefinition);
+        return f;
+    }
+
+    private static String parseResponseItem(McpSchema.Content first) {
+        return switch(first) {
+            case McpSchema.EmbeddedResource embeddedResource -> {
+                log.error("Found unknown embedded resource");
+                throw new RuntimeException("Unimplemented");
+            }
+            case McpSchema.ImageContent imageContent -> {
+                log.error("Found unknown image resource");
+                throw new RuntimeException("Unimplemented");
+            }
+            case McpSchema.TextContent(List<McpSchema.Role> audience, Double priority, String text) -> {
+                yield text;
+            }
+        };
+    }
+
     private static @NotNull String getToolName(String serviceName, String toolName) {
         log.info("Getting tool name for service {}, tool name {}", serviceName, toolName);
-        String formatted = "%s.%s".formatted(doReplaceName(serviceName), toolName);
+        String formatted = "%s-%s".formatted(doReplaceName(serviceName), toolName);
         return formatted;
     }
 
