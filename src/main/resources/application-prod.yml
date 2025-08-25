@@ -3,12 +3,13 @@ gateway:
     commit-diff-context-mcp:
       name: commit-diff-context-mcp
       command: bash
-      arguments: gradlew commit-diff-context-mcp:build -x test
-      directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
-      copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin
-      copy-from-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
+      arguments: gradlew commit-diff-context-mcp:bootJar
+      directory: {{PARENT_DIR}}
+      copy-to-artifact-path: {{PROJ_DIR}}/ctx_bin
+      copy-from-artifact-path: {{PARENT_DIR}}/commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
+      mcp-deploy-log: {{PROJ_DIR}}/commit-diff-context-mcp.log
   fail-on-mcp-client-init: false
-  mcp-servers-json-location: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/build/resources/main/mcp-servers/servers-prod.json
+  mcp-servers-json-location: file:{{BUILD_DIR}}/resources/main/mcp-servers/servers-prod.json
 
 server.port: 8081
 

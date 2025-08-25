@@ -173,7 +173,9 @@ public class ToolDecoratorService {
                     Error happened during rollback.
                     """)
             @JsonInclude(JsonInclude.Include.NON_EMPTY)
-            String rollbackErr
+            String rollbackErr,
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            Path deployedMcpServerLog
     ) {}
 
     @Builder(toBuilder = true)
@@ -315,7 +317,7 @@ public class ToolDecoratorService {
                                                 toRedeploy.name());
                                         return parseRedeployResult(i, toRedeploy);
                                     } else {
-                                        return ToolDecoratorService.RedeployResult.builder()
+                                        return RedeployResult.builder()
                                                 .deployErr("%s was not contained in set of deployable MCP servers %s - please update."
                                                         .formatted(i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers().keySet()))
                                                 .build();
@@ -375,7 +377,10 @@ public class ToolDecoratorService {
             mcpSyncServer.notifyToolsListChanged();
         }
 
-        return r.redeployResult();
+        return r.redeployResult()
+                .toBuilder()
+                .deployLog(toRedeploy.getMcpDeployLog())
+                .build();
     }
 
 

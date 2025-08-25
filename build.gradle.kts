@@ -50,16 +50,18 @@ tasks.register<Copy>("copyCommitDiffCtxMcp") {
 }
 
 tasks.compileJava {
-    dependsOn("copyTestMcpServer", "copyCommitDiffCtxMcp")
+    dependsOn("copyTestMcpServer", "copyCommitDiffCtxMcp", "processYmlFiles")
     finalizedBy("processMcpServerJson")
 }
 
 tasks.test {
-    dependsOn("copyTestMcpServer", "processMcpServerJson")
+    dependsOn("copyTestMcpServer", "processMcpServerJson", "processYmlFiles")
 }
 
+
 //TODO: for docker
-//tasks.bootJar {
+tasks.bootJar {
 //    dependsOn(project(":function-calling").tasks.named("copyJar"))
-//}
+    archiveFileName = "mcp-tool-gateway.jar"
+}
 

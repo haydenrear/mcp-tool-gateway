@@ -4,10 +4,11 @@ gateway:
       name: deploy-test-mcp-server
       command: bash
       arguments: gradlew test-mcp-server:build -x test
-      directory: /Users/hayde/IdeaProjects/commit-diff-context-parent
-      copy-to-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/ctx_bin
-      copy-from-artifact-path: /Users/hayde/IdeaProjects/commit-diff-context-parent/test-mcp-server/build/libs/test-mcp-server.jar
-  mcp-servers-json-location: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/build/resources/main/mcp-servers/servers-clienttest.json
+      directory: {{PARENT_DIR}}
+      copy-to-artifact-path: {{PROJ_DIR}}/ctx_bin
+      copy-from-artifact-path: {{PARENT_DIR}}/test-mcp-server/build/libs/test-mcp-server.jar
+      mcp-deploy-log: {{PROJ_DIR}}/test-mcp-server.log
+  mcp-servers-json-location: file:{{BUILD_DIR}}/resources/main/mcp-servers/servers-clienttest.json
 server.port: 8081
 
 logging.config: classpath:logback-mcp-tool-gateway.xml
@@ -16,7 +17,7 @@ spring:
   docker:
     compose:
       enabled: false
-      file: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/src/main/resources/docker/docker-compose.yml
+      file: file:{{PROJ_DIR}}/src/main/resources/docker/docker-compose.yml
       skip:
         in-tests: true
       lifecycle-management: start_only

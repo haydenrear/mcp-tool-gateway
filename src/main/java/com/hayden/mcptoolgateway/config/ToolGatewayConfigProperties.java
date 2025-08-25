@@ -37,6 +37,8 @@ public class ToolGatewayConfigProperties {
         private Path directory;
         private Path copyFromArtifactPath;
         private Path copyToArtifactPath;
+        private Path mcpDeployLog;
+
         @Builder.Default
         private ExecutionType executionType = ExecutionType.PROCESS_BUILDER;
 
