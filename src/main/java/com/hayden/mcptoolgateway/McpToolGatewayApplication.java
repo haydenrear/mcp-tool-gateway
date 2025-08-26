@@ -1,14 +1,12 @@
 package com.hayden.mcptoolgateway;
 
+import com.hayden.mcptoolgateway.config.KillCdcInitializer;
 import org.springframework.ai.mcp.client.autoconfigure.McpClientAutoConfiguration;
-import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 /**
  * Sits between MCP tool and re-deployability of that tool.
@@ -25,6 +23,7 @@ public class McpToolGatewayApplication {
         SpringApplicationBuilder springApplicationBuilder = new SpringApplicationBuilder(McpToolGatewayApplication.class);
         springApplicationBuilder
                 .web(WebApplicationType.NONE)
+                .initializers(new KillCdcInitializer())
                 .run(args);
     }
 

@@ -8,6 +8,7 @@ gateway:
       copy-to-artifact-path: {{PROJ_DIR}}/ctx_bin
       copy-from-artifact-path: {{PARENT_DIR}}/commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
       mcp-deploy-log: {{PROJ_DIR}}/commit-diff-context-mcp.log
+  kill-script: file:{{BUILD_DIR}}/resources/main/kill-cdc.sh
   fail-on-mcp-client-init: false
   mcp-servers-json-location: file:{{BUILD_DIR}}/resources/main/mcp-servers/servers-prod.json
 

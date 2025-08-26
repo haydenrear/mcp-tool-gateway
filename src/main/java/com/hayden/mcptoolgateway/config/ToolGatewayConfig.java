@@ -16,12 +16,13 @@ import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.*;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -93,42 +94,5 @@ public class ToolGatewayConfig {
         return args -> {};
     }
 
-    @Bean
-    public CommandLineRunner killAnyExistingCdc(ToolGatewayConfigProperties props) {
-        if (props.getKillScript().toFile().exists()) {
-            log.info("Found kill script in properties.");
-            doKill(props.getKillScript().toFile());
-        } else {
-            var f = new File("");
-            if (!f.toPath().resolve("kill-cdc.sh").toFile().exists()
-                    && f.toPath().getParent().resolve("kill-cdc.sh").toFile().exists()) {
-                f = f.toPath().getParent().resolve("kill-cdc.sh").toFile();
-            } else if (f.toPath().resolve("kill-cdc.sh").toFile().exists()) {
-                f = f.toPath().resolve("kill-cdc.sh").toFile();
-            } else if (f.toPath().resolve("kill-cdc.sh").toFile().exists()) {
-
-            }
-            if (f.exists()) {
-                doKill(f);
-            }
-        }
-
-        return args -> {};
-    }
-
-    private static void doKill(File f) {
-        try {
-            log.info("Killing cdc.");
-            Process bash = new ProcessBuilder("bash", f.getAbsolutePath())
-                    .start();
-            bash.waitFor();
-            try(var b = new BufferedReader(new InputStreamReader(bash.getInputStream()))) {
-                var l = b.lines().collect(Collectors.joining(System.lineSeparator())) ;
-                log.info("Attempted to stop existing:\n{}", l);
-            }
-        } catch (InterruptedException | IOException e) {
-           log.error("Failed to kill existing...");
-        }
-    }
 
 }
