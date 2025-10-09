@@ -7,8 +7,11 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Component
 @RequiredArgsConstructor
@@ -26,12 +29,32 @@ public class McpServerToolStates {
         return new HashMap<>(mcpServerToolStates);
     }
 
-    public void lock() {
-        lock.writeLock().lock();
+     public void doOverState(Runnable toDo) {
+        try {
+            lock.writeLock().lock();
+            toDo.run();
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
-    public void unlock() {
-        lock.writeLock().unlock();
+    public void doPerformInitialization(Supplier<Boolean> toDo) {
+        try {
+            lock.writeLock().lock();
+            if (toDo.get())
+                initialized();
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public <U> U doOverState(Supplier<U> toDo) {
+        try {
+            lock.writeLock().lock();
+            return toDo.get();
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     public void initialized() {

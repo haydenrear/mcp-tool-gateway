@@ -76,8 +76,6 @@ public class ToolDecoratorService {
         }
     }
 
-
-
     @Autowired
     ToolGatewayConfigProperties toolGatewayConfigProperties;
     @Autowired
@@ -94,13 +92,10 @@ public class ToolDecoratorService {
     }
 
     public void doPerformInit() {
-        try {
-            toolStates.lock();
+        toolStates.doPerformInitialization(() -> {
             buildTools();
-            toolStates.initialized();
-        } finally {
-            toolStates.unlock();
-        }
+            return true;
+        });
     }
 
     private void buildTools() {
@@ -133,7 +128,5 @@ public class ToolDecoratorService {
                 .map(td -> td.decorate(decoratedTools))
                 .forEach(this.toolStates::addUpdateToolState);
    }
-
-
 
 }

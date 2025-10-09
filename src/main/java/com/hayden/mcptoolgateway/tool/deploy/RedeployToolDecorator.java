@@ -114,34 +114,29 @@ public class RedeployToolDecorator implements ToolDecorator {
 
         StaticToolCallbackProvider redeployToolCallbackProvider = new StaticToolCallbackProvider(
                 FunctionToolCallback
-                        .<ToolModels.Redeploy, DeployModels.RedeployResult>builder(RedeployFunction.REDEPLOY_MCP_SERVER, (i, o) -> {
-                            try {
-                                ts.lock();
-                                if (!toolGatewayConfigProperties.getDeployableMcpServers()
-                                        .containsKey(i.deployService())) {
-                                    log.error("MCP server name {} was not contained in options {}.",
-                                            i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers().keySet());
-                                    if (toolGatewayConfigProperties.getDeployableMcpServers().size() == 1) {
-                                        ToolGatewayConfigProperties.DeployableMcpServer toRedeploy = toolGatewayConfigProperties.getDeployableMcpServers()
-                                                .entrySet().stream()
-                                                .findFirst().orElseThrow()
-                                                .getValue();
-                                        log.error("Deploying only deployable MCP server with request - assuming mistake - redeploying existing {}.",
-                                                toRedeploy.name());
-                                        return parseRedeployResult(i, toRedeploy);
-                                    } else {
-                                        return DeployModels.RedeployResult.builder()
-                                                .deployErr("%s was not contained in set of deployable MCP servers %s - please update."
-                                                        .formatted(i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers().keySet()))
-                                                .build();
-                                    }
+                        .<ToolModels.Redeploy, DeployModels.RedeployResult>builder(RedeployFunction.REDEPLOY_MCP_SERVER, (i, o) -> ts.doOverState(() -> {
+                            if (!toolGatewayConfigProperties.getDeployableMcpServers()
+                                    .containsKey(i.deployService())) {
+                                log.error("MCP server name {} was not contained in options {}.",
+                                        i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers().keySet());
+                                if (toolGatewayConfigProperties.getDeployableMcpServers().size() == 1) {
+                                    ToolGatewayConfigProperties.DeployableMcpServer toRedeploy = toolGatewayConfigProperties.getDeployableMcpServers()
+                                            .entrySet().stream()
+                                            .findFirst().orElseThrow()
+                                            .getValue();
+                                    log.error("Deploying only deployable MCP server with request - assuming mistake - redeploying existing {}.",
+                                            toRedeploy.name());
+                                    return parseRedeployResult(i, toRedeploy);
                                 } else {
-                                    return parseRedeployResult(i, toolGatewayConfigProperties.getDeployableMcpServers().get(i.deployService()));
+                                    return DeployModels.RedeployResult.builder()
+                                            .deployErr("%s was not contained in set of deployable MCP servers %s - please update."
+                                                    .formatted(i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers().keySet()))
+                                            .build();
                                 }
-                            } finally {
-                                ts.unlock();
+                            } else {
+                                return parseRedeployResult(i, toolGatewayConfigProperties.getDeployableMcpServers().get(i.deployService()));
                             }
-                        })
+                        }))
                         .description("""
                                 # Redeploy Tool Description
                                 
