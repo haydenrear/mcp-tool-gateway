@@ -19,7 +19,6 @@ dependencies {
     implementation(project(":commit-diff-model"))
     implementation(project(":tracing"))
     implementation(project(":test-mcp-server"))
-    implementation(project(":mcp-tool-gateway-lib"))
 }
 
 val projDir = layout.projectDirectory
