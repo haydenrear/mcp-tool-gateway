@@ -1,8 +1,9 @@
-package com.hayden.mcptoolgateway.fn;
+package com.hayden.mcptoolgateway.tool.deploy.fn;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.*;
 import com.hayden.mcptoolgateway.tool.deploy.DeployModels;
+import com.hayden.mcptoolgateway.tool.deploy.DeployService;
 import com.hayden.mcptoolgateway.tool.deploy.Redeploy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

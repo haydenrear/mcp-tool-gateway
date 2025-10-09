@@ -5,8 +5,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
-import com.hayden.mcptoolgateway.tool.McpSyncServerDelegate;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.tool_state.McpSyncServerDelegate;
 import com.hayden.mcptoolgateway.tool.TestUtil;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.ToolModels;

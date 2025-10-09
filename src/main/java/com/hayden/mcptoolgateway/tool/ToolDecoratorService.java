@@ -1,9 +1,9 @@
 package com.hayden.mcptoolgateway.tool;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import io.micrometer.common.util.StringUtils;
-import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.annotation.PostConstruct;
 import lombok.*;
@@ -21,41 +21,8 @@ import java.util.stream.Stream;
 @Component
 public class ToolDecoratorService {
 
-
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    static class DelegateMcpSyncClient {
-        McpSyncClient client;
-
-        public synchronized McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
-            return client.callTool(callToolRequest);
-        }
-
-        /**
-         * TODO: last error to return - or last error log file
-         */
-        String error;
-
-        public synchronized void setClient(McpSyncClient client) {
-            this.client = client;
-        }
-
-        public synchronized void setError(String error) {
-            this.error = error;
-        }
-
-        public DelegateMcpSyncClient(McpSyncClient client) {
-            this.client = client;
-        }
-
-        public DelegateMcpSyncClient(String error) {
-            this.error = error;
-        }
-    }
-
     @Builder(toBuilder = true)
-    record CreateToolCallbackProviderResult(ToolCallbackProvider provider, McpSchema.Tool toolName, Exception e) { }
+    public record CreateToolCallbackProviderResult(ToolCallbackProvider provider, McpSchema.Tool toolName, Exception e) { }
 
     public record ToolCallbackDescriptor(ToolCallbackProvider provider, ToolCallback toolCallback) {}
 
@@ -81,8 +48,6 @@ public class ToolDecoratorService {
     @Autowired
     List<ToolDecorator> toolDecorators;
     @Autowired
-    SetClients setMcpClient;
-    @Autowired
     McpServerToolStates toolStates;
 
     @PostConstruct
@@ -105,7 +70,7 @@ public class ToolDecoratorService {
                 .stream()
                 .flatMap(d -> {
                     try {
-                        var m = setMcpClient.setMcpClient(d.getKey(), McpServerToolState.builder().build());
+                        var m = toolStates.setMcpClient(d.getKey(), McpServerToolState.builder().build());
                         return Optional.ofNullable(m)
                                 .stream()
                                 .flatMap(s -> Stream.of(

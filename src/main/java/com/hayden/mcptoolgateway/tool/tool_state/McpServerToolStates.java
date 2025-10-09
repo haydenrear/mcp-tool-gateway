@@ -1,16 +1,19 @@
-package com.hayden.mcptoolgateway.tool;
+package com.hayden.mcptoolgateway.tool.tool_state;
 
+import com.hayden.mcptoolgateway.tool.ToolDecorator;
+import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.utilitymodule.concurrent.striped.StripedLock;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.server.McpSyncServer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 @Component
@@ -18,6 +21,8 @@ import java.util.function.Supplier;
 public class McpServerToolStates {
 
     private final SetClients setClients;
+
+    private final McpSyncServerDelegate syncServerDelegate;
 
     private final Map<String, ToolDecoratorService.McpServerToolState> mcpServerToolStates = new ConcurrentHashMap<>();
 
@@ -61,6 +66,21 @@ public class McpServerToolStates {
         didInitialize = true;
     }
 
+    @StripedLock
+    public <T> T killClientAndThen(String clientName, Supplier<T> toDo) {
+        return setClients.killClientAndThen(clientName, toDo);
+    }
+
+    @StripedLock
+    public ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
+        return setClients.setMcpClient(deployService, mcpServerToolState);
+    }
+
+    @StripedLock
+    public ToolDecoratorService.SetSyncClientResult createSetClientErr(String service, DynamicMcpToolCallbackProvider.McpError m, ToolDecoratorService.McpServerToolState mcpServerToolState) {
+        return setClients.createSetClientErr(service, m, mcpServerToolState);
+    }
+
     public void addUpdateToolState(String name, ToolDecoratorService.McpServerToolState mcpServerToolState) {
         this.mcpServerToolStates.put(name, mcpServerToolState);
     }
@@ -97,8 +117,8 @@ public class McpServerToolStates {
         return setClients.noClientKey(clientName);
     }
 
-    public boolean clientNotInitialized(String service) {
-        return setClients.clientNotInitialized(service);
+    public boolean clientExistsNotInitialized(String service) {
+        return setClients.clientExistsNotInitialized(service);
     }
 
     public boolean clientInitialized(String service) {
@@ -113,13 +133,20 @@ public class McpServerToolStates {
         return setClients.isMcpServerAvailable(key);
     }
 
-    @StripedLock
-    public ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return setClients.setMcpClient(deployService, mcpServerToolState);
+    @Autowired
+    public void setMcpSyncServer(McpSyncServer mcpSyncServer) {
+        syncServerDelegate.setMcpSyncServer(mcpSyncServer);
     }
 
-    @StripedLock
-    public ToolDecoratorService.SetSyncClientResult createSetClientErr(String service, DynamicMcpToolCallbackProvider.McpError m, ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return setClients.createSetClientErr(service, m, mcpServerToolState);
+    public void addTool(McpServerFeatures.SyncToolSpecification toolHandler) {
+        syncServerDelegate.addTool(toolHandler);
+    }
+
+    public void removeTool(String toolName) {
+        syncServerDelegate.removeTool(toolName);
+    }
+
+    public void notifyToolsListChanged() {
+        syncServerDelegate.notifyToolsListChanged();
     }
 }

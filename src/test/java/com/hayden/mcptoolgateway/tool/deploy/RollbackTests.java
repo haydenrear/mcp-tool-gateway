@@ -6,8 +6,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.*;
+import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
+import com.hayden.mcptoolgateway.tool.tool_state.McpSyncServerDelegate;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;

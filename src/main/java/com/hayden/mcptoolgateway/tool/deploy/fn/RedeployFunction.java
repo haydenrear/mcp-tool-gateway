@@ -1,4 +1,4 @@
-package com.hayden.mcptoolgateway.fn;
+package com.hayden.mcptoolgateway.tool.deploy.fn;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import lombok.Builder;

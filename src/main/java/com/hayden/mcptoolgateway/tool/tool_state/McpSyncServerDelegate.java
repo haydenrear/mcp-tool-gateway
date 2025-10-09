@@ -1,4 +1,4 @@
-package com.hayden.mcptoolgateway.tool;
+package com.hayden.mcptoolgateway.tool.tool_state;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -10,8 +10,12 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class McpSyncServerDelegate {
 
-    @Autowired
     McpSyncServer mcpSyncServer;
+
+    @Autowired
+    public void setMcpSyncServer(McpSyncServer mcpSyncServer) {
+        this.mcpSyncServer = mcpSyncServer;
+    }
 
     public synchronized void addTool(McpServerFeatures.SyncToolSpecification toolHandler) {
         try {

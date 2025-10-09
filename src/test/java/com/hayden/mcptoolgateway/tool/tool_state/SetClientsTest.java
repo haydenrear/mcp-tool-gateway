@@ -1,5 +1,6 @@
-package com.hayden.mcptoolgateway.tool;
+package com.hayden.mcptoolgateway.tool.tool_state;
 
+import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;

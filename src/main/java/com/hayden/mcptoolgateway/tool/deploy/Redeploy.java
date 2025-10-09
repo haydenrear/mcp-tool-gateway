@@ -1,11 +1,11 @@
 package com.hayden.mcptoolgateway.tool.deploy;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
-import com.hayden.mcptoolgateway.fn.RollbackFunction;
-import com.hayden.mcptoolgateway.tool.DeployService;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RollbackFunction;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.ToolModels;
+import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
@@ -21,13 +21,13 @@ public class Redeploy {
     @Autowired
     RedeployFunction redeployFunction;
     @Autowired
-    DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
-    @Autowired
     ToolGatewayConfigProperties toolGatewayConfigProperties;
     @Autowired
     DeployService deploy;
     @Autowired
     RollbackFunction rollback;
+    @Autowired
+    McpServerToolStates ts;
 
     @Builder(toBuilder = true)
     public record RedeployResultWrapper(
@@ -67,7 +67,7 @@ public class Redeploy {
     RedeployResultWrapper doRedeploy(ToolModels.Redeploy redeploy,
                                      ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer,
                                      ToolDecoratorService.McpServerToolState toolState) {
-        var res = this.dynamicMcpToolCallbackProvider.killClientAndThen(redeploy.deployService(), () -> {
+        var res = this.ts.killClientAndThen(redeploy.deployService(), () -> {
                 var d = this.toolGatewayConfigProperties.getDeployableMcpServers().get(redeploy.deployService());
 
                 rollback.prepareRollback(d);

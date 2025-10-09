@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.*;
+import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
+import com.hayden.mcptoolgateway.tool.tool_state.McpSyncServerDelegate;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +33,6 @@ public class RedeployToolDecorator implements ToolDecorator {
     private final McpServerToolStates ts;
 
     private final ObjectMapper objectMapper;
-
-    private final McpSyncServerDelegate mcpSyncServer;
 
     private final Redeploy redeploy;
 
@@ -162,11 +162,11 @@ public class RedeployToolDecorator implements ToolDecorator {
                         .build());
 
         if (ts.isInitialized()) {
-            mcpSyncServer.removeTool(RedeployFunction.REDEPLOY_MCP_SERVER);
+            ts.removeTool(RedeployFunction.REDEPLOY_MCP_SERVER);
         }
 
-        mcpSyncServer.addTool(McpToolUtils.toSyncToolSpecification(redeployToolCallbackProvider.getToolCallbacks()[0]));
-        mcpSyncServer.notifyToolsListChanged();
+        ts.addTool(McpToolUtils.toSyncToolSpecification(redeployToolCallbackProvider.getToolCallbacks()[0]));
+        ts.notifyToolsListChanged();
 
         return ToolDecoratorService.McpServerToolState.builder()
                 .toolCallbackProviders(Lists.newArrayList(redeployToolCallbackProvider))
@@ -188,7 +188,7 @@ public class RedeployToolDecorator implements ToolDecorator {
         if (r.didToolListChange()) {
             var redeployed = this.decorate(this.ts.copyOf());
             this.ts.addUpdateToolState(redeployed);
-            mcpSyncServer.notifyToolsListChanged();
+            ts.notifyToolsListChanged();
         }
 
         return r.redeployResult()

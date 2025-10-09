@@ -2,9 +2,9 @@ package com.hayden.mcptoolgateway.tool.deploy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
-import com.hayden.mcptoolgateway.tool.McpSyncServerDelegate;
-import com.hayden.mcptoolgateway.tool.SetClients;
+import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.tool_state.McpSyncServerDelegate;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.ToolModels;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
@@ -53,9 +53,7 @@ class ToolDecoratorRedeployTests {
     private RedeployToolDecorator redeployToolDecorator;
 
     @Autowired
-    private SetClients setClients;
-
-
+    private McpServerToolStates setClients;
 
 
     @Autowired

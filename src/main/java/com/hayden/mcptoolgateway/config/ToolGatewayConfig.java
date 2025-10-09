@@ -2,7 +2,7 @@ package com.hayden.mcptoolgateway.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;

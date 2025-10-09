@@ -1,9 +1,10 @@
-package com.hayden.mcptoolgateway.tool;
+package com.hayden.mcptoolgateway.tool.deploy;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.fn.RedeployFunction;
-import com.hayden.mcptoolgateway.tool.deploy.DeployModels;
-import com.hayden.mcptoolgateway.tool.deploy.Redeploy;
+import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
+import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
+import com.hayden.mcptoolgateway.tool.ToolModels;
+import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,7 @@ import java.util.Optional;
 public class DeployService {
 
     @Autowired
-    SetClients setMcpClient;
+    McpServerToolStates ts;
     @Autowired
     ToolGatewayConfigProperties toolGatewayConfigProperties;
 
@@ -122,9 +123,9 @@ public class DeployService {
                                                               RedeployFunction.RedeployDescriptor r,
                                                               ToolDecoratorService.McpServerToolState toolState,
                                                               DeployModels.DeployState deployState) {
-        var toSet = setMcpClient.setMcpClient(redeploy.deployService(), toolState);
+        var toSet = ts.setMcpClient(redeploy.deployService(), toolState);
 
-        if (toSet.wasSuccessful() && setMcpClient.clientInitialized(redeploy.deployService())) {
+        if (toSet.wasSuccessful() && ts.clientInitialized(redeploy.deployService())) {
             return Redeploy.RedeployResultWrapper
                     .builder()
                     .redeploy(redeploy)
@@ -160,7 +161,7 @@ public class DeployService {
                                                                             ToolDecoratorService.McpServerToolState remove,
                                                                             DeployModels.DeployState deployState,
                                                                             DeployModels.DeployState rollbackState) {
-        var tc = setMcpClient.createSetClientErr(
+        var tc = ts.createSetClientErr(
                 redeploy.deployService(), new DynamicMcpToolCallbackProvider.McpError(r.err()), remove);
 
         return new Redeploy.RedeployResultWrapper(
@@ -217,7 +218,7 @@ public class DeployService {
                                                                                                  DeployModels.DeployState successDeployState,
                                                                                                  DeployModels.DeployState failRollbackState,
                                                                                                  DeployModels.DeployState successRollbackState) {
-        ToolDecoratorService.SetSyncClientResult setSyncClientResult = setMcpClient.setMcpClient(redeploy.deployService(), remove);
+        ToolDecoratorService.SetSyncClientResult setSyncClientResult = ts.setMcpClient(redeploy.deployService(), remove);
         return handleConnectMcpError(redeploy)
                 .map(err -> new Redeploy.RedeployResultWrapper(
                         DeployModels.RedeployResult.builder()
@@ -255,16 +256,16 @@ public class DeployService {
 
 
     private @NotNull Optional<String> handleConnectMcpError(ToolModels.Redeploy redeploy) {
-        if (setMcpClient.noClientKey(redeploy.deployService())) {
+        if (ts.noClientKey(redeploy.deployService())) {
             return Optional.of("MCP client was not found for %s".formatted(redeploy.deployService()));
-        } else if (setMcpClient.noMcpClient(redeploy.deployService())) {
-            var err = setMcpClient.getError(redeploy.deployService());
+        } else if (ts.noMcpClient(redeploy.deployService())) {
+            var err = ts.getError(redeploy.deployService());
             if (err != null) {
                 return Optional.of("Error connecting to MCP client for %s after redeploy: %s".formatted(redeploy, err));
             } else {
                 return Optional.of("Unknown connecting to MCP client for %s after redeploy".formatted(redeploy));
             }
-        } else if (setMcpClient.clientNotInitialized(redeploy.deployService())) {
+        } else if (ts.clientExistsNotInitialized(redeploy.deployService())) {
             return Optional.of("Unknown connecting to MCP client for %s after redeploy - client was not initialized.".formatted(redeploy));
         } else {
             return Optional.empty();
