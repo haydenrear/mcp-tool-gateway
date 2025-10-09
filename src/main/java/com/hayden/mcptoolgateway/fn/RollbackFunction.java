@@ -2,6 +2,8 @@ package com.hayden.mcptoolgateway.fn;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.*;
+import com.hayden.mcptoolgateway.tool.deploy.DeployModels;
+import com.hayden.mcptoolgateway.tool.deploy.Redeploy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -10,8 +12,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-
-import static com.hayden.mcptoolgateway.tool.DeployService.performedRedeployResultRollback;
 
 @Component
 @Slf4j
@@ -26,7 +26,7 @@ public class RollbackFunction {
                                                    ToolGatewayConfigProperties.DeployableMcpServer d,
                                                    RedeployFunction.RedeployDescriptor r,
                                                    ToolDecoratorService.McpServerToolState remove,
-                                                   ToolDecoratorService.DeployState deployState) {
+                                                   DeployModels.DeployState deployState) {
             Redeploy.RedeployResultWrapper redeployResultWrapper = deploy.handleDeploy(
                     DeployService.DeployDescription.AfterFailedDeployTryRollback
                             .builder()

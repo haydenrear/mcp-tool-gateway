@@ -1,4 +1,4 @@
-package com.hayden.mcptoolgateway.tool;
+package com.hayden.mcptoolgateway.tool.deploy;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -6,6 +6,10 @@ import static org.mockito.Mockito.*;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.McpSyncServerDelegate;
+import com.hayden.mcptoolgateway.tool.TestUtil;
+import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
+import com.hayden.mcptoolgateway.tool.ToolModels;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -110,8 +114,9 @@ class RedeployTest {
         // When
         Redeploy.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
 
-        assertThat(this.toolGatewayConfigProperties.getArtifactCache().resolve(this.toolGatewayConfigProperties.getDeployableMcpServers().get("test-rollback-server")
-                .copyToArtifactPath().toFile().getName()).toFile()).exists();
+        assertThat(this.toolGatewayConfigProperties.getArtifactCache()
+                .resolve(this.toolGatewayConfigProperties.getDeployableMcpServers().get("test-rollback-server")
+                .getCopyFromArtifactPath().toFile().getName()).toFile()).exists();
 
         // Then
         verify(redeployFunction).performRedeploy(deployableMcpServer);
@@ -121,7 +126,7 @@ class RedeployTest {
     @Test
     void shouldRollbackWhenRedeployFailsAndBinaryExists() throws IOException {
         // Given - Ensure copyToArtifactPath file exists
-        Files.write(deployableMcpServer.getCopyToArtifactPath(), "original content".getBytes());
+        TestUtil.writeToCopyTo("original content".getBytes(), deployableMcpServer);
 
         RedeployFunction.RedeployDescriptor failedDescriptor = RedeployFunction.RedeployDescriptor.builder()
                 .isSuccess(false)
@@ -149,12 +154,12 @@ class RedeployTest {
         // Then
         verify(redeployFunction).performRedeploy(deployableMcpServer);
         // Verify that rollback preparation occurred by checking cache directory
-        assertThat(Files.exists(toolGatewayConfigProperties.getArtifactCache().resolve(deployableMcpServer.copyToArtifactPath().getFileName().toString())))
+        assertThat(Files.exists(toolGatewayConfigProperties.getArtifactCache().resolve(deployableMcpServer.getCopyFromArtifactPath().getFileName().toString())))
                 .isTrue();
     }
 
     @Test
-    void shouldHandleFailedRedeployWithoutRollbackWhenBinaryDoesNotExist() throws IOException {
+    void shouldHandleFailedRedeployWithoutRollbackWhenBinaryDoesNotExist() {
         // Given - Use a non-existent copyToArtifactPath path
         Path nonExistentBinary = deployableMcpServer.directory().resolve("non-existent.jar");
         ToolGatewayConfigProperties.DeployableMcpServer serverWithoutBinary =
@@ -220,7 +225,7 @@ class RedeployTest {
     @Test
     void shouldHandleRollbackWithConnectionFailure() throws IOException {
         // Given - Create copyToArtifactPath that exists
-        Files.write(deployableMcpServer.getCopyToArtifactPath(), "original content".getBytes());
+        TestUtil.writeToCopyTo("original content".getBytes(), deployableMcpServer);
 
         RedeployFunction.RedeployDescriptor failedDescriptor = RedeployFunction.RedeployDescriptor.builder()
                 .isSuccess(false)

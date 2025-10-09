@@ -1,4 +1,4 @@
-package com.hayden.mcptoolgateway.tool;
+package com.hayden.mcptoolgateway.tool.deploy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.*;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -46,7 +47,7 @@ public class RollbackTests {
     private ToolDecoratorService toolDecoratorService;
 
     @Autowired
-    private SetClients setClients;
+    private McpServerToolStates setClients;
 
     @Autowired
     private Redeploy redeploy;
@@ -95,7 +96,7 @@ public class RollbackTests {
     @Test
     void shouldHandleRedeployWithRollbackScenario() throws IOException {
         // Given
-        Files.write(testServer.copyToArtifactPath(), "original copyToArtifactPath content".getBytes());
+        TestUtil.writeToCopyTo("original copyToArtifactPath content".getBytes(), testServer);
 
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("test-rollback-server");
         
@@ -128,7 +129,7 @@ public class RollbackTests {
         // Then
         verify(redeployFunction).performRedeploy(testServer);
         // Verify that rollback preparation would have occurred (copyToArtifactPath backup)
-        assertThat(Files.exists(toolGatewayConfigProperties.getArtifactCache().resolve(testServer.copyToArtifactPath().getFileName().toString())))
+        assertThat(Files.exists(toolGatewayConfigProperties.getArtifactCache().resolve(testServer.getCopyFromArtifactPath().getFileName().toString())))
                 .isTrue();
     }
 
@@ -174,7 +175,7 @@ public class RollbackTests {
 
         // Then
         assertThat(result.wasSuccessful()).isTrue();
-        assertThat(result.tools()).contains("test-rollback-server.test-tool");
+        assertThat(result.tools()).contains("test-rollback-server-test-tool");
         assertThat(setClients.hasClient(clientName)).isTrue();
         assertThat(setClients.clientInitialized(clientName)).isTrue();
         verify(mcpSyncServerDelegate).addTool(any());
@@ -273,13 +274,13 @@ public class RollbackTests {
 
         // Then
         assertThat(firstResult.wasSuccessful()).isTrue();
-        assertThat(firstResult.toolsAdded()).contains("test-rollback-server.tool1");
+        assertThat(firstResult.toolsAdded()).contains("test-rollback-server-tool1");
         
         assertThat(secondResult.wasSuccessful()).isTrue();
-        assertThat(secondResult.toolsAdded()).contains("test-rollback-server.tool2");
-        assertThat(secondResult.toolsRemoved()).contains("test-rollback-server.tool1");
+        assertThat(secondResult.toolsAdded()).contains("test-rollback-server-tool2");
+        assertThat(secondResult.toolsRemoved()).contains("test-rollback-server-tool1");
         
         verify(mcpSyncServerDelegate, times(2)).addTool(any());
-        verify(mcpSyncServerDelegate).removeTool("test-rollback-server.tool1");
+        verify(mcpSyncServerDelegate).removeTool("test-rollback-server-tool1");
     }
 }

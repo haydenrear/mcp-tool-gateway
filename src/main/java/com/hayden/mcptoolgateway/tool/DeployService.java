@@ -2,6 +2,8 @@ package com.hayden.mcptoolgateway.tool;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.fn.RedeployFunction;
+import com.hayden.mcptoolgateway.tool.deploy.DeployModels;
+import com.hayden.mcptoolgateway.tool.deploy.Redeploy;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +40,7 @@ public class DeployService {
                 ToolGatewayConfigProperties.DeployableMcpServer d,
                 RedeployFunction.RedeployDescriptor r,
                 ToolDecoratorService.McpServerToolState remove,
-                ToolDecoratorService.DeployState deployState) implements DeployDescription {
+                DeployModels.DeployState deployState) implements DeployDescription {
         }
 
         @Builder
@@ -47,7 +49,7 @@ public class DeployService {
                 ToolGatewayConfigProperties.DeployableMcpServer d,
                 RedeployFunction.RedeployDescriptor r,
                 ToolDecoratorService.McpServerToolState remove,
-                ToolDecoratorService.DeployState deployState,
+                DeployModels.DeployState deployState,
                 Redeploy.RedeployResultWrapper rollbackResult)
                 implements DeployDescription {
         }
@@ -58,17 +60,17 @@ public class DeployService {
                 ToolGatewayConfigProperties.DeployableMcpServer d,
                 RedeployFunction.RedeployDescriptor r,
                 ToolDecoratorService.McpServerToolState remove,
-                ToolDecoratorService.DeployState deployState,
+                DeployModels.DeployState deployState,
                 Redeploy.RedeployResultWrapper rollbackResult)
                 implements DeployDescription {
         }
     }
 
     public Redeploy.RedeployResultWrapper handleDeploy(DeployDescription.AfterRollbackFail in) {
-        ToolDecoratorService.DeployState rollbackState = Optional.ofNullable(in.rollbackResult)
+        DeployModels.DeployState rollbackState = Optional.ofNullable(in.rollbackResult)
                 .flatMap(wr -> Optional.of(wr.redeployResult()))
                 .flatMap(wr -> Optional.ofNullable(wr.rollbackState()))
-                .orElse(ToolDecoratorService.DeployState.DEPLOY_FAIL);
+                .orElse(DeployModels.DeployState.DEPLOY_FAIL);
         return handleFailedRedeployRollbackFail(in.redeploy, in.r, in.remove, in.deployState, rollbackState);
     }
 
@@ -88,7 +90,7 @@ public class DeployService {
                                                        ToolGatewayConfigProperties.DeployableMcpServer d,
                                                        RedeployFunction.RedeployDescriptor r,
                                                        ToolDecoratorService.McpServerToolState toolState,
-                                                       ToolDecoratorService.DeployState deployState) {
+                                                       DeployModels.DeployState deployState) {
         if (!toolGatewayConfigProperties.getArtifactCache().resolve(d.copyToArtifactPath().toFile().getName()).toFile().exists()) {
             return doTryRollbackInner(redeploy, r, toolState, deployState);
         }
@@ -103,9 +105,9 @@ public class DeployService {
         } catch (IOException e) {
             log.error("Failed to copy MCP server artifact to cache.");
             return new Redeploy.RedeployResultWrapper(
-                    ToolDecoratorService.RedeployResult
+                    DeployModels.RedeployResult
                             .builder()
-                            .rollbackState(ToolDecoratorService.DeployState.ROLLBACK_FAIL)
+                            .rollbackState(DeployModels.DeployState.ROLLBACK_FAIL)
                             .rollbackErr("Failed to copy MCP server artifact to cache, %s."
                                     .formatted(e.getMessage()))
                             .deployState(deployState)
@@ -119,7 +121,7 @@ public class DeployService {
     private Redeploy.RedeployResultWrapper doTryRollbackInner(ToolModels.Redeploy redeploy,
                                                               RedeployFunction.RedeployDescriptor r,
                                                               ToolDecoratorService.McpServerToolState toolState,
-                                                              ToolDecoratorService.DeployState deployState) {
+                                                              DeployModels.DeployState deployState) {
         var toSet = setMcpClient.setMcpClient(redeploy.deployService(), toolState);
 
         if (toSet.wasSuccessful() && setMcpClient.clientInitialized(redeploy.deployService())) {
@@ -127,13 +129,13 @@ public class DeployService {
                     .builder()
                     .redeploy(redeploy)
                     .redeployResult(
-                            ToolDecoratorService.RedeployResult
+                            DeployModels.RedeployResult
                                     .builder()
                                     .tools(toSet.tools())
                                     .deployErr(r.err())
                                     .deployLog(r.log())
                                     .deployState(deployState)
-                                    .rollbackState(ToolDecoratorService.DeployState.ROLLBACK_SUCCESSFUL)
+                                    .rollbackState(DeployModels.DeployState.ROLLBACK_SUCCESSFUL)
                                     .build())
                     .build();
         }
@@ -142,11 +144,11 @@ public class DeployService {
                 .builder()
                 .redeploy(redeploy)
                 .redeployResult(
-                        ToolDecoratorService.RedeployResult
+                        DeployModels.RedeployResult
                                 .builder()
                                 .deployErr(r.err())
                                 .deployLog(r.log())
-                                .rollbackState(ToolDecoratorService.DeployState.ROLLBACK_FAIL_NO_CONNECT_MCP)
+                                .rollbackState(DeployModels.DeployState.ROLLBACK_FAIL_NO_CONNECT_MCP)
                                 .deployState(deployState)
                                 .mcpConnectErr(toSet.err())
                                 .build())
@@ -156,13 +158,13 @@ public class DeployService {
     private Redeploy.RedeployResultWrapper handleFailedRedeployRollbackFail(ToolModels.Redeploy redeploy,
                                                                             RedeployFunction.RedeployDescriptor r,
                                                                             ToolDecoratorService.McpServerToolState remove,
-                                                                            ToolDecoratorService.DeployState deployState,
-                                                                            ToolDecoratorService.DeployState rollbackState) {
+                                                                            DeployModels.DeployState deployState,
+                                                                            DeployModels.DeployState rollbackState) {
         var tc = setMcpClient.createSetClientErr(
                 redeploy.deployService(), new DynamicMcpToolCallbackProvider.McpError(r.err()), remove);
 
         return new Redeploy.RedeployResultWrapper(
-                ToolDecoratorService.RedeployResult.builder()
+                DeployModels.RedeployResult.builder()
                         .deployErr(redeployFailedErr(redeploy, r))
                         .toolsRemoved(tc.toolsRemoved())
                         .deployLog(r.log())
@@ -182,21 +184,21 @@ public class DeployService {
                                                                                         ToolDecoratorService.McpServerToolState remove) {
         return handleDidRedeployUpdateToolCallbackProviders(
                 redeploy, r, remove,
-                ToolDecoratorService.DeployState.DEPLOY_FAIL_NO_CONNECT_MCP,
-                ToolDecoratorService.DeployState.DEPLOY_SUCCESSFUL,
+                DeployModels.DeployState.DEPLOY_FAIL_NO_CONNECT_MCP,
+                DeployModels.DeployState.DEPLOY_SUCCESSFUL,
                 null, null);
     }
 
     public @NotNull Redeploy.RedeployResultWrapper handleConnectAfterRollback(ToolModels.Redeploy redeploy,
                                                                               RedeployFunction.RedeployDescriptor r,
                                                                               ToolDecoratorService.McpServerToolState remove,
-                                                                              ToolDecoratorService.DeployState deployState) {
+                                                                              DeployModels.DeployState deployState) {
 
         var w = handleDidRedeployUpdateToolCallbackProviders(
                 redeploy, r, remove,
                 deployState, deployState,
-                ToolDecoratorService.DeployState.ROLLBACK_FAIL_NO_CONNECT_MCP,
-                ToolDecoratorService.DeployState.ROLLBACK_SUCCESSFUL);
+                DeployModels.DeployState.ROLLBACK_FAIL_NO_CONNECT_MCP,
+                DeployModels.DeployState.ROLLBACK_SUCCESSFUL);
 
         return w.toBuilder()
                 .redeployResult(
@@ -211,14 +213,14 @@ public class DeployService {
     private @NotNull Redeploy.RedeployResultWrapper handleDidRedeployUpdateToolCallbackProviders(ToolModels.Redeploy redeploy,
                                                                                                  RedeployFunction.RedeployDescriptor r,
                                                                                                  ToolDecoratorService.McpServerToolState remove,
-                                                                                                 ToolDecoratorService.DeployState failDeployState,
-                                                                                                 ToolDecoratorService.DeployState successDeployState,
-                                                                                                 ToolDecoratorService.DeployState failRollbackState,
-                                                                                                 ToolDecoratorService.DeployState successRollbackState) {
+                                                                                                 DeployModels.DeployState failDeployState,
+                                                                                                 DeployModels.DeployState successDeployState,
+                                                                                                 DeployModels.DeployState failRollbackState,
+                                                                                                 DeployModels.DeployState successRollbackState) {
         ToolDecoratorService.SetSyncClientResult setSyncClientResult = setMcpClient.setMcpClient(redeploy.deployService(), remove);
         return handleConnectMcpError(redeploy)
                 .map(err -> new Redeploy.RedeployResultWrapper(
-                        ToolDecoratorService.RedeployResult.builder()
+                        DeployModels.RedeployResult.builder()
                                 .mcpConnectErr(err)
                                 .deployLog(r.log())
                                 .deployState(failDeployState)
@@ -234,7 +236,7 @@ public class DeployService {
                                 .build(),
                         redeploy))
                 .orElseGet(() -> new Redeploy.RedeployResultWrapper(
-                        ToolDecoratorService.RedeployResult.builder()
+                        DeployModels.RedeployResult.builder()
                                 .deployMessage("Performed redeploy for %s: %s.".formatted(redeploy.deployService(), r))
                                 .deployLog(r.log())
                                 .deployState(successDeployState)

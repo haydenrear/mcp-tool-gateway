@@ -201,8 +201,8 @@ class SetClientsTest {
 
         // Then
         assertThat(result.wasSuccessful()).isTrue();
-        assertThat(result.tools()).contains("test-rollback-server.test-tool");
-        assertThat(result.toolsAdded()).contains("test-rollback-server.test-tool");
+        assertThat(result.tools()).contains("test-rollback-server-test-tool");
+        assertThat(result.toolsAdded()).contains("test-rollback-server-test-tool");
         assertThat(result.providers()).hasSize(1);
         verify(mcpSyncServer).addTool(any());
     }
@@ -238,7 +238,7 @@ class SetClientsTest {
         
         when(existingProvider.getToolCallbacks()).thenReturn(new org.springframework.ai.tool.ToolCallback[]{existingCallback});
         when(existingCallback.getToolDefinition()).thenReturn(existingDefinition);
-        when(existingDefinition.name()).thenReturn("test-rollback-server.old-tool");
+        when(existingDefinition.name()).thenReturn("test-rollback-server-old-tool");
         
         mockToolState = ToolDecoratorService.McpServerToolState.builder()
                 .toolCallbackProviders(List.of(existingProvider))
@@ -258,10 +258,10 @@ class SetClientsTest {
 
         // Then
         assertThat(result.wasSuccessful()).isTrue();
-        assertThat(result.toolsAdded()).contains("test-rollback-server.new-tool");
-        assertThat(result.toolsRemoved()).contains("test-rollback-server.old-tool");
+        assertThat(result.toolsAdded()).contains("test-rollback-server-new-tool");
+        assertThat(result.toolsRemoved()).contains("test-rollback-server-old-tool");
         verify(mcpSyncServer).addTool(any());
-        verify(mcpSyncServer).removeTool("test-rollback-server.old-tool");
+        verify(mcpSyncServer).removeTool("test-rollback-server-old-tool");
     }
 
     @Test

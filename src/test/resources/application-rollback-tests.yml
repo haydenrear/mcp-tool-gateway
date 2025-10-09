@@ -4,8 +4,9 @@ gateway:
       name: test-rollback-server
       command: echo "deploy command"
       directory: classpath:.cache
-      copy-to-artifact-path: classpath:test_work/test-binary.jar
-  mcp-servers-json-location: classpath:test-mcp-servers/servers-test-rollback.json
+      copy-to-artifact-path: classpath:test_work
+      copy-from-artifact-path: classpath:test_work/test-binary.jar
+  mcp-stdio-servers-json-location: file:{{BUILD_DIR}}/resources/test/test-stdio-mcp-servers/servers-test-rollback.json
   fail-on-mcp-client-init: false
   artifact-cache: classpath:.cache
   start-mcp-server-on-initialize: false

@@ -1,8 +1,11 @@
-package com.hayden.mcptoolgateway.tool;
+package com.hayden.mcptoolgateway.tool.deploy;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.fn.RollbackFunction;
+import com.hayden.mcptoolgateway.tool.DeployService;
+import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
+import com.hayden.mcptoolgateway.tool.ToolModels;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
@@ -28,18 +31,18 @@ public class Redeploy {
 
     @Builder(toBuilder = true)
     public record RedeployResultWrapper(
-            ToolDecoratorService.RedeployResult redeployResult,
+            DeployModels.RedeployResult redeployResult,
             ToolDecoratorService.McpServerToolState newToolState,
             ToolModels.Redeploy redeploy) {
 
         public boolean didToolListChange() {
             return Optional.ofNullable(redeployResult)
                     .flatMap(r -> Optional.ofNullable(r.rollbackState()))
-                    .map(ToolDecoratorService.DeployState::didToolListChange)
+                    .map(DeployModels.DeployState::didToolListChange)
                     .or(() -> {
                         return Optional.ofNullable(redeployResult)
                                 .flatMap(r -> Optional.ofNullable(r.deployState()))
-                                .map(ToolDecoratorService.DeployState::didToolListChange)    ;
+                                .map(DeployModels.DeployState::didToolListChange)    ;
                     })
                     .orElse(false);
         }
@@ -48,14 +51,14 @@ public class Redeploy {
         public boolean didRollback() {
             return Optional.ofNullable(redeployResult)
                     .flatMap(r -> Optional.ofNullable(r.rollbackState()))
-                    .map(ToolDecoratorService.DeployState::didRollback)
+                    .map(DeployModels.DeployState::didRollback)
                     .orElse(false);
         }
 
         public boolean didDeploy() {
             return Optional.ofNullable(redeployResult)
                     .flatMap(r -> Optional.ofNullable(r.deployState()))
-                    .map(ToolDecoratorService.DeployState::didRedeploy)
+                    .map(DeployModels.DeployState::didRedeploy)
                     .orElse(false);
         }
 
@@ -73,7 +76,7 @@ public class Redeploy {
 
                 if (!r.isSuccess()) {
                     log.debug("Failed to perform redeploy {} - copying old artifact and restarting.", r);
-                    return rollback.rollback(redeploy, d, r, toolState, ToolDecoratorService.DeployState.DEPLOY_FAIL);
+                    return rollback.rollback(redeploy, d, r, toolState, DeployModels.DeployState.DEPLOY_FAIL);
                 }
 
                 var didRedeploy = deploy.handleDeploy(

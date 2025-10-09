@@ -8,6 +8,8 @@ import java.util.Optional;
 
 public interface RedeployFunction {
 
+    String REDEPLOY_MCP_SERVER = "redeploy-mcp-server";
+
     @Builder
     record RedeployDescriptor(boolean isSuccess, int exitCode, Path binary, Path log, String err) {}
 

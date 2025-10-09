@@ -8,7 +8,8 @@ gateway:
       copy-to-artifact-path: {{PROJ_DIR}}/ctx_bin
       copy-from-artifact-path: {{PARENT_DIR}}/test-mcp-server/build/libs/test-mcp-server.jar
       mcp-deploy-log: {{PROJ_DIR}}/test-mcp-server.log
-  mcp-servers-json-location: file:{{BUILD_DIR}}/resources/main/mcp-servers/servers-clienttest.json
+  mcp-http-servers-json-location: file:{{BUILD_DIR}}/resources/main/http-mcp-servers/servers-clienttest.json
+  mcp-stdio-servers-json-location: file:{{BUILD_DIR}}/resources/main/stdio-mcp-servers/servers-clienttest.json
 server.port: 8081
 
 logging.config: classpath:logback-mcp-tool-gateway.xml
