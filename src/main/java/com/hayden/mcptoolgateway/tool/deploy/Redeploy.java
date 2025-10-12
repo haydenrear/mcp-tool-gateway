@@ -11,6 +11,7 @@ import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.util.Optional;
 
@@ -67,7 +68,9 @@ public class Redeploy {
     RedeployResultWrapper doRedeploy(ToolModels.Redeploy redeploy,
                                      ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer,
                                      ToolDecoratorService.McpServerToolState toolState) {
-        var res = this.ts.killClientAndThen(redeploy.deployService(), () -> {
+
+
+        var res = this.ts.killClientAndThen(toolState, redeploy.deployService(), () -> {
                 var d = this.toolGatewayConfigProperties.getDeployableMcpServers().get(redeploy.deployService());
 
                 rollback.prepareRollback(d);

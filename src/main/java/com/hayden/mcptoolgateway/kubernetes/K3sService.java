@@ -1,0 +1,23 @@
+package com.hayden.mcptoolgateway.kubernetes;
+
+import io.micrometer.common.util.StringUtils;
+import org.springframework.stereotype.Component;
+
+@Component
+public class K3sService {
+
+    public record K3sDeployResult (String err, boolean success, String host) {
+        public K3sDeployResult(boolean success, String err) {
+            this(err, success, "");
+        }
+
+        public K3sDeployResult(String err) {
+            this(err, StringUtils.isNotBlank(err), null);
+        }
+    }
+
+    public K3sDeployResult doDeployGetValidDeployment() {
+        return new K3sDeployResult("Not implemented");
+    }
+
+}

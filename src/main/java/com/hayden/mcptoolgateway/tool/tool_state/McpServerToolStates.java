@@ -2,20 +2,23 @@ package com.hayden.mcptoolgateway.tool.tool_state;
 
 import com.hayden.mcptoolgateway.tool.ToolDecorator;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
-import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.concurrent.striped.StripedLock;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import io.micrometer.common.util.StringUtils;
+import io.modelcontextprotocol.client.transport.AuthResolver;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
@@ -72,18 +75,42 @@ public class McpServerToolStates {
     }
 
     @StripedLock
-    public <T> T killClientAndThen(String clientName, Supplier<T> toDo) {
-        return setClients.killClientAndThen(clientName, toDo);
+    public <T> T killClientAndThen(ToolDecoratorService.McpServerToolState toolState, String clientName, Supplier<T> toDo) {
+        return setClients.killClientAndThen(toolState, clientName, toDo);
     }
 
     @StripedLock
     public ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService,
                                                                  ToolDecoratorService.McpServerToolState mcpServerToolState) {
+        ;
+        return setClients.setMcpClient(getAuthDeployedService(deployService), mcpServerToolState);
+    }
+
+    public static @NotNull DeployedService getAuthDeployedService(String deployService) {
+        return new DeployedService(deployService, AuthResolver.resolveUserOrDefault());
+    }
+
+    @StripedLock
+    public ToolDecoratorService.SetSyncClientResult setMcpClient(DeployedService deployService,
+                                                                 ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return setClients.setMcpClient(deployService, mcpServerToolState);
     }
 
     @StripedLock
-    public ToolDecoratorService.SetSyncClientResult createSetClientErr(String service, DynamicMcpToolCallbackProvider.McpError m, ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    public ToolDecoratorService.SetSyncClientResult setMcpClient(DeployedService deployService,
+                                                                 ToolDecoratorService.McpServerToolState mcpServerToolState,
+                                                                 NamedClientMcpTransport namedTransport) {
+        return setClients.setMcpClient(deployService, mcpServerToolState, namedTransport);
+    }
+
+    @StripedLock
+    public ToolDecoratorService.SetSyncClientResult createSetClientErr(String service, DynamicMcpToolCallbackProvider.McpError m,
+                                                                       ToolDecoratorService.McpServerToolState mcpServerToolState) {
+        return createSetClientErr(getAuthDeployedService(service), m, mcpServerToolState);
+    }
+
+    @StripedLock
+    public ToolDecoratorService.SetSyncClientResult createSetClientErr(DeployedService service, DynamicMcpToolCallbackProvider.McpError m, ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return setClients.createSetClientErr(service, m, mcpServerToolState);
     }
 
@@ -156,4 +183,27 @@ public class McpServerToolStates {
         syncServerDelegate.notifyToolsListChanged();
     }
 
+    public boolean contains(String s) {
+        return this.mcpServerToolStates.containsKey(s);
+    }
+
+    public void addClient(ToolDecoratorService.AddClient serverName) {
+        this.mcpServerToolStates.compute(serverName.serverName(), (key, prev) -> {
+            if (prev != null)
+                prev.added().add(serverName);
+
+            return prev;
+        });
+    }
+
+    public record DeployedService(String deployService, String id) {
+        public String clientId() {
+            if (Objects.equals(id, ToolDecoratorService.SYSTEM_ID)) {
+                return deployService;
+            } else {
+                Assert.isTrue(StringUtils.isNotBlank(id), "Id cannot be blank for deployed service.");
+                return deployService + "." + id;
+            }
+        }
+    }
 }

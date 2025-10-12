@@ -12,8 +12,9 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.util.Optional;
 
-import static com.hayden.mcptoolgateway.tool.ToolDecoratorService.McpServerToolState.AUTH_BODY_FIELD;
+import static com.hayden.mcptoolgateway.tool.ToolDecoratorService.AUTH_BODY_FIELD;
 
 @Component
 public class AuthResolver {
@@ -23,10 +24,39 @@ public class AuthResolver {
         return Mono.empty();
     }
 
+    public static String resolveUserOrDefault() {
+        // Works when called inside a reactive chain (RouterFunction handlers etc.)
+        return Optional.ofNullable(resolveUser())
+                .orElse("default");
+    }
+
+    public static String resolveUser() {
+        // Works when called inside a reactive chain (RouterFunction handlers etc.)
+        return toBearer(
+                SecurityContextHolder.getContext() != null ? SecurityContextHolder.getContext().getAuthentication() : null);
+    }
+
     public static String resolveBearerHeader() {
         // Works when called inside a reactive chain (RouterFunction handlers etc.)
         return toBearer(
                 SecurityContextHolder.getContext() != null ? SecurityContextHolder.getContext().getAuthentication() : null);
+    }
+
+    public static String toUserId(Authentication auth) {
+        if (auth == null)
+            return null;
+
+        // Resource server JWT
+        if (auth instanceof JwtAuthenticationToken jwt) {
+            return jwt.getName();
+        }
+
+        // Opaque bearer
+        if (auth instanceof BearerTokenAuthentication bta) {
+            return bta.getName();
+        }
+
+        return null;
     }
 
     public static String toBearer(Authentication auth) {
