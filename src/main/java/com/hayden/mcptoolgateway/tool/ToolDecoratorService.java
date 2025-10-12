@@ -4,7 +4,12 @@ import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import io.micrometer.common.util.StringUtils;
+import io.modelcontextprotocol.client.McpAsyncClient;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.util.Assert;
 import jakarta.annotation.PostConstruct;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +17,9 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ReflectionUtils;
 
+import java.net.http.HttpRequest;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -29,7 +36,9 @@ public class ToolDecoratorService {
     @Builder(toBuilder = true)
     public record McpServerToolState(
             List<ToolCallbackProvider> toolCallbackProviders,
-            RedeployFunction.RedeployDescriptor lastDeploy) { }
+            RedeployFunction.RedeployDescriptor lastDeploy) {
+        public static final String AUTH_BODY_FIELD = "_bearerToken";
+    }
 
     @Builder(toBuilder = true)
     public record SetSyncClientResult(

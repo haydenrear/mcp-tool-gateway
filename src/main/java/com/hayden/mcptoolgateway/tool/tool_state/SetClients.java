@@ -9,10 +9,12 @@ import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.AuthResolver;
 import io.modelcontextprotocol.spec.McpSchema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.chat.model.ToolContext;
@@ -27,6 +29,7 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -45,7 +48,7 @@ class SetClients {
     @Autowired
     DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
 
-    private final Map<String, DelegateMcpSyncClient> syncClients = new ConcurrentHashMap<>();
+    final Map<String, DelegateMcpSyncClient> syncClients = new ConcurrentHashMap<>();
 
     boolean clientHasError(String clientName) {
         return syncClients.containsKey(clientName) && StringUtils.isNotBlank(syncClients.get(clientName).error);
@@ -400,23 +403,44 @@ class SetClients {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class DelegateMcpSyncClient {
-        McpSyncClient client;
+        private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock() ;
 
-        public synchronized McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
-            return client.callTool(callToolRequest);
-        }
+        McpSyncClient client;
 
         /**
          * TODO: last error to return - or last error log file
          */
         String error;
 
-        public synchronized void setClient(McpSyncClient client) {
-            this.client = client;
+        public McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
+            try {
+                readWriteLock.readLock().lock();
+                var resolved = AuthResolver.resolveBearerHeader();
+                if (resolved != null)
+                    callToolRequest.arguments().put(ToolDecoratorService.McpServerToolState.AUTH_BODY_FIELD, resolved);
+                var called = client.callTool(callToolRequest);
+                return called;
+            } finally {
+                readWriteLock.readLock().unlock();
+            }
         }
 
-        public synchronized void setError(String error) {
-            this.error = error;
+        public void setClient(McpSyncClient client) {
+            try {
+                this.readWriteLock.writeLock().lock();
+                this.client = client;
+            } finally {
+                this.readWriteLock.writeLock().unlock();
+            }
+        }
+
+        public void setError(String error) {
+            try {
+                this.readWriteLock.writeLock().lock();
+                this.error = error;
+            } finally {
+                this.readWriteLock.writeLock().unlock();
+            }
         }
 
         public DelegateMcpSyncClient(McpSyncClient client) {
@@ -426,5 +450,6 @@ class SetClients {
         public DelegateMcpSyncClient(String error) {
             this.error = error;
         }
+
     }
 }

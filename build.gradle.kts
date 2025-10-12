@@ -19,6 +19,9 @@ dependencies {
     implementation(project(":commit-diff-model"))
     implementation(project(":tracing"))
     implementation(project(":test-mcp-server"))
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.security:spring-security-core")
 }
 
 val projDir = layout.projectDirectory

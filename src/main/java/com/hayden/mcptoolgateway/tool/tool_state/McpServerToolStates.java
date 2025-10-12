@@ -2,14 +2,18 @@ package com.hayden.mcptoolgateway.tool.tool_state;
 
 import com.hayden.mcptoolgateway.tool.ToolDecorator;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
+import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.concurrent.striped.StripedLock;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,6 +22,7 @@ import java.util.function.Supplier;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class McpServerToolStates {
 
     private final SetClients setClients;
@@ -72,7 +77,8 @@ public class McpServerToolStates {
     }
 
     @StripedLock
-    public ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    public ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService,
+                                                                 ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return setClients.setMcpClient(deployService, mcpServerToolState);
     }
 
@@ -149,4 +155,5 @@ public class McpServerToolStates {
     public void notifyToolsListChanged() {
         syncServerDelegate.notifyToolsListChanged();
     }
+
 }

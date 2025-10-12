@@ -1,7 +1,10 @@
 package com.hayden.mcptoolgateway;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,6 +30,11 @@ class McpToolGatewayApplicationTests {
         assertThat(new File("ctx_bin/test-mcp-server.jar").exists()).isTrue();
         assertThat(dynamicMcpToolCallbackProvider.containsClient("test-rollback-server")).isTrue();
         assertThat(dynamicMcpToolCallbackProvider.containsActiveClient("test-rollback-server")).isTrue();
+    }
+
+    @Test
+    void testBuilder() {
+
     }
 
 }

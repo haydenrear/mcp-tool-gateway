@@ -5,9 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.stream.StreamUtil;
-import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
-import io.modelcontextprotocol.client.transport.ServerParameters;
-import io.modelcontextprotocol.client.transport.StdioClientTransport;
+import io.modelcontextprotocol.client.transport.*;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -19,8 +17,11 @@ import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.*;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.web.servlet.function.RouterFunction;
+import org.springframework.web.servlet.function.ServerResponse;
 
 import java.io.*;
 import java.util.*;
@@ -30,6 +31,7 @@ import static io.modelcontextprotocol.server.transport.HttpServletSseServerTrans
 
 @Slf4j
 @Configuration
+@Import({AuthResolver.class})
 public class ToolGatewayConfig {
 
     @Autowired
@@ -106,21 +108,22 @@ public class ToolGatewayConfig {
 
     @Bean
     @Primary
-    public List<NamedClientMcpTransport> namedTransports(ObjectMapper objectMapper) {
+    public List<NamedClientMcpTransport> namedTransports(ObjectMapper objectMapper, AuthResolver authResolver) {
         var http = resourceToHttpServerParameters().entrySet()
                 .stream()
                 .map(e -> new NamedClientMcpTransport(
                         e.getKey(),
-                        HttpClientSseClientTransport
-                                .builder(e.getValue().url())
+                        AuthAwareHttpSseClientTransport
+                                .authAwareBuilder(e.getValue().url())
                                 .objectMapper(objectMapper)
+                                .authResolver(authResolver)
                                 .sseEndpoint(e.getKey())
                                 .build()));
         var stdio = resourceToStdioServerParameters().entrySet()
                 .stream()
                 .map(e -> new NamedClientMcpTransport(e.getKey(), new StdioClientTransport(e.getValue())));
 
-        var all= Stream.concat(http, stdio).toList();
+        var all = Stream.concat(http, stdio).toList();
         return all;
     }
 
