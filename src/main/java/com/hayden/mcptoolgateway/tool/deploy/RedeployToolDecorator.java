@@ -7,6 +7,7 @@ import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.*;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
+import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.client.McpAsyncClient;
@@ -131,7 +132,7 @@ public class RedeployToolDecorator implements ToolDecorator {
                                             .getValue();
                                     log.error("Deploying only deployable MCP server with request - assuming mistake - redeploying existing {}.",
                                             toRedeploy.name());
-                                    return parseRedeployResult(i, toRedeploy);
+                                    return doRedeploy(i, toRedeploy);
                                 } else {
                                     return DeployModels.RedeployResult.builder()
                                             .deployErr("%s was not contained in set of deployable MCP servers %s - please update."
@@ -139,7 +140,7 @@ public class RedeployToolDecorator implements ToolDecorator {
                                             .build();
                                 }
                             } else {
-                                return parseRedeployResult(i, toolGatewayConfigProperties.getDeployableMcpServers().get(i.deployService()));
+                                return doRedeploy(i, toolGatewayConfigProperties.getDeployableMcpServers().get(i.deployService()));
                             }
                         }))
                         .description("""
@@ -178,8 +179,8 @@ public class RedeployToolDecorator implements ToolDecorator {
                 .build();
     }
 
-    DeployModels.RedeployResult parseRedeployResult(ToolModels.Redeploy i,
-                                                           ToolGatewayConfigProperties.DeployableMcpServer toRedeploy) {
+    DeployModels.RedeployResult doRedeploy(ToolModels.Redeploy i,
+                                           ToolGatewayConfigProperties.DeployableMcpServer toRedeploy) {
         if (!toolGatewayConfigProperties.getDeployableMcpServers().containsKey(i.deployService())) {
             return DeployModels.RedeployResult.builder()
                     .deployErr("%s was not contained in set of deployable MCP servers %s - please update."
@@ -187,7 +188,8 @@ public class RedeployToolDecorator implements ToolDecorator {
                     .build();
         }
 
-        var r = redeploy.doRedeploy(i, toRedeploy, this.ts.removeToolState(i.deployService()));
+        var r = redeploy.doRedeploy(new ToolDecoratorInterpreter.ToolDecoratorEffect.DoRedeploy(i, toRedeploy, this.ts.removeToolState(i.deployService())));
+
         this.ts.addUpdateToolState(i.deployService(), r.newToolState());
 
         if (r.didToolListChange()) {

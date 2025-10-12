@@ -1,12 +1,10 @@
 package com.hayden.mcptoolgateway.tool.tool_state;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.mcptoolgateway.tool.PassthroughFunctionToolCallback;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.utilitymodule.concurrent.striped.StripedLock;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
-import com.hayden.utilitymodule.result.Result;
+import com.hayden.utilitymodule.free.Free;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.client.McpAsyncClient;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -19,14 +17,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
-import org.springframework.ai.tool.StaticToolCallbackProvider;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ReflectionUtils;
@@ -35,9 +28,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -54,6 +45,9 @@ class SetClients {
     DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
     @Autowired
     DelegateMcpClientFactory delegateMcpClientFactory;
+    @Autowired
+    @Lazy
+    ToolDecoratorInterpreter toolDecoratorInterpreter;
 
     final Map<String, DelegateMcpClient> syncClients = new ConcurrentHashMap<>();
 
@@ -98,32 +92,53 @@ class SetClients {
     }
 
     @StripedLock
-    public ToolDecoratorService.SetSyncClientResult setMcpClient(McpServerToolStates.DeployedService deployService,
-                                                                 ToolDecoratorService.McpServerToolState mcpServerToolState,
-                                                                 NamedClientMcpTransport transport) {
-        return this.dynamicMcpToolCallbackProvider.buildClient(deployService.clientId(), transport)
-                .map(m -> createSetSyncClient(m, deployService, mcpServerToolState))
-                .onErrorFlatMapResult(err -> Result.ok(createSetClientErr(deployService, err, mcpServerToolState)))
-                .unwrap();
+    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> setMcpClient(McpServerToolStates.DeployedService deployService,
+                                                                                                                         ToolDecoratorService.McpServerToolState mcpServerToolState,
+                                                                                                                         NamedClientMcpTransport transport) {
+        return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.BuildClient(deployService, mcpServerToolState, transport));
     }
 
     @StripedLock
-    public ToolDecoratorService.SetSyncClientResult setMcpClient(String deployService,
-                                                                 ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult setParseMcpClient(String deployService,
+                                                                                              ToolDecoratorService.McpServerToolState mcpServerToolState) {
+        var parsed = Free.parse(setMcpClient(deployService, mcpServerToolState).flatMap(Free::pure), toolDecoratorInterpreter);
+        if (parsed instanceof ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult r) {
+            return r;
+        }
+
+        return null;
+    }
+
+    @StripedLock
+    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClient(String deployService,
+                                                                                                                                             ToolDecoratorService.McpServerToolState mcpServerToolState) {
         var d = new McpServerToolStates.DeployedService(deployService, AuthResolver.resolveUserOrDefault());
-        return this.dynamicMcpToolCallbackProvider.buildClient(d.clientId())
-                .map(m -> createSetSyncClient(m, d, mcpServerToolState))
-                .onErrorFlatMapResult(err -> Result.ok(createSetClientErr(d, err, mcpServerToolState)))
-                .unwrap();
+        return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.BuildClient(d, mcpServerToolState, null));
     }
 
     @StripedLock
-    public ToolDecoratorService.SetSyncClientResult setMcpClient(McpServerToolStates.DeployedService deployService,
-                                                                 ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return this.dynamicMcpToolCallbackProvider.buildClient(deployService.clientId())
-                .map(m -> createSetSyncClient(m, deployService, mcpServerToolState))
-                .onErrorFlatMapResult(err -> Result.ok(createSetClientErr(deployService, err, mcpServerToolState)))
-                .unwrap();
+    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> setMcpClient(McpServerToolStates.DeployedService deployService,
+                                                                                                                         ToolDecoratorService.McpServerToolState mcpServerToolState) {
+
+        return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.BuildClient(deployService, mcpServerToolState, null));
+    }
+
+    @StripedLock
+    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> killClientAndThenFree(
+            ToolDecoratorService.McpServerToolState toolState,
+            String clientName,
+            Supplier<Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult>> toDo) {
+        if (CollectionUtils.isEmpty(toolState.added())) {
+            return this.dynamicMcpToolCallbackProvider.killClientAndThen(clientName, toDo);
+        } else {
+            toolState.added()
+                    .forEach(aClient -> {
+                        var found = new McpServerToolStates.DeployedService(aClient.serverName(), aClient.userName());
+                        this.dynamicMcpToolCallbackProvider.killClientAndThen(found.clientId(), () -> true);
+                    });
+
+            return this.dynamicMcpToolCallbackProvider.killClientAndThen(clientName, toDo);
+        }
     }
 
     @StripedLock
@@ -144,16 +159,16 @@ class SetClients {
     }
 
     @StripedLock
-    public ToolDecoratorService.SetSyncClientResult createSetClientErr(String service,
-                                                                       DynamicMcpToolCallbackProvider.McpError m,
-                                                                       ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult createSetClientErr(String service,
+                                                                                               DynamicMcpToolCallbackProvider.McpError m,
+                                                                                               ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return createSetClientErr(McpServerToolStates.getAuthDeployedService(service), m, mcpServerToolState);
     }
 
     @StripedLock
-    public ToolDecoratorService.SetSyncClientResult createSetClientErr(McpServerToolStates.DeployedService service,
-                                                                       DynamicMcpToolCallbackProvider.McpError m,
-                                                                       ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult createSetClientErr(McpServerToolStates.DeployedService service,
+                                                                                               DynamicMcpToolCallbackProvider.McpError m,
+                                                                                               ToolDecoratorService.McpServerToolState mcpServerToolState) {
         this.syncClients.compute(service.id(), (key, prev) -> {
             if (prev == null) {
                 var created = delegateMcpClientFactory.clientFactory(mcpServerToolState);
@@ -177,24 +192,37 @@ class SetClients {
                 }
             }
 
-            return ToolDecoratorService.SetSyncClientResult.builder()
+            return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
                     .toolsRemoved(removed)
                     .tools(tools)
                     .err(m.getMessage())
                     .build();
         }
 
-        return ToolDecoratorService.SetSyncClientResult.builder()
+        return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
                 .tools(tools)
                 .err(m.getMessage())
                 .build();
     }
 
 
-    private @NotNull ToolDecoratorService.SetSyncClientResult createSetSyncClient(McpSyncClient m,
-                                                                                  McpServerToolStates.DeployedService deployService,
-                                                                                  ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    @NotNull Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> setMcpClientUpdateTools(
+            McpSyncClient m,
+            McpServerToolStates.DeployedService deployService,
+            ToolDecoratorService.McpServerToolState mcpServerToolState) {
+        return Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetMcpClientResult>
+                        liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.SetMcpClientUpdateTools(m, deployService, mcpServerToolState, null))
+                .flatMap(s -> {
+                    var mcpClient = s.delegate();
+                    if (containsToolCallbackProviders(mcpServerToolState)) {
+                        return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.UpdatingExistingToolDecorator(mcpClient, mcpServerToolState, deployService));
+                    } else {
+                        return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.CreateNewToolDecorator(mcpClient, deployService));
+                    }
+                });
+    }
 
+    DelegateMcpClient doSetMcpClient(McpSyncClient m, McpServerToolStates.DeployedService deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
         var mcpClient = this.syncClients.compute(deployService.deployService(), (key, prev) -> {
             if (prev == null) {
                 return this.delegateMcpClientFactory.clientFactory(mcpServerToolState);
@@ -203,112 +231,7 @@ class SetClients {
             prev.setClient(m);
             return prev;
         });
-
-        if (containsToolCallbackProviders(mcpServerToolState)) {
-            return updateExisting(mcpClient, mcpServerToolState, deployService);
-        } else {
-            return createNew(mcpClient, deployService);
-        }
-    }
-
-    private ToolDecoratorService.SetSyncClientResult createNew(DelegateMcpClient mcpClient,
-                                                               McpServerToolStates.DeployedService deployService) {
-        try {
-            McpSchema.ListToolsResult listToolsResult = mcpClient.listTools();
-
-            List<ToolCallbackProvider> providersCreated = new ArrayList<>();
-            Set<String> toolsAdded = new HashSet<>();
-            Set<String> toolsRemoved = new HashSet<>();
-            Set<String> tools = new HashSet<>();
-            Set<String> toolErrors = new HashSet<>();
-
-            var t = toToolCallbackProvider(listToolsResult, mcpClient, deployService);
-
-            for (var tcp : t) {
-                if (tcp.provider() == null) {
-//                  there is no existing!
-                    addToErr(tcp, toolErrors);
-                } else {
-                    Arrays.stream(tcp.provider().getToolCallbacks())
-                            .forEach(tc -> {
-                                mcpSyncServerDelegate.addTool(McpToolUtils.toSyncToolSpecification(tc));
-                                toolsAdded.add(tc.getToolDefinition().name());
-                                tools.add(tc.getToolDefinition().name());
-                            });
-                    log.info("Adding new toolfor callback {}", tcp.toolName().name());
-                    providersCreated.add(tcp.provider());
-                }
-            }
-
-            return ToolDecoratorService.SetSyncClientResult.builder()
-                    .toolsAdded(toolsAdded)
-                    .toolsRemoved(toolsRemoved)
-                    .tools(tools)
-                    .providers(providersCreated)
-                    .build();
-        } catch (Exception e) {
-            return parseToolExceptionFail(e, mcpClient, deployService);
-        }
-    }
-
-    private ToolDecoratorService.SetSyncClientResult updateExisting(DelegateMcpClient m,
-                                                                    ToolDecoratorService.McpServerToolState removedState,
-                                                                    McpServerToolStates.DeployedService deployService) {
-        Map<String, ToolDecoratorService.ToolCallbackDescriptor> existing = toExistingToolCallbackProviders(removedState);
-
-        try {
-            McpSchema.ListToolsResult listToolsResult = m.listTools();
-
-            List<ToolCallbackProvider> providersCreated = new ArrayList<>();
-            Set<String>  toolsAdded = new HashSet<>();
-            Set<String>  toolsRemoved = new HashSet<>();
-            Set<String>  tools = new HashSet<>();
-            Set<String> toolErrors = new HashSet<>();
-
-
-            var newTools = listToolsResult.tools().stream()
-                    .map(t -> Map.entry(getToolName(m.getClientInfo().name(), t.name()), t))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-            log.info("Updating existing {}", newTools.keySet());
-
-            for (var n : newTools.entrySet()) {
-                var p = createToolCallbackProvider(m, n.getValue(), deployService);
-                Optional.ofNullable(p.provider())
-                        .ifPresentOrElse(tcp -> {
-                            if (!existing.containsKey(n.getKey())) {
-                                log.info("Adding new {}", n.getKey());
-                                toolsAdded.add(n.getKey());
-                            } else {
-                                mcpSyncServerDelegate.removeTool(n.getKey());
-                            }
-                            tools.add(n.getKey());
-                            providersCreated.add(tcp);
-                            Arrays.stream(tcp.getToolCallbacks())
-                                    .forEach(tc -> mcpSyncServerDelegate.addTool(McpToolUtils.toSyncToolSpecification(tc)));
-                        }, () -> {
-                            log.error("Unable to create tool callback provider for {}.", n.getKey());
-                            addToErr(p, toolErrors);
-                        });
-            }
-
-            for (var n : existing.entrySet()) {
-                if (!newTools.containsKey(n.getKey())) {
-                    log.info("Removing tool {} from {}", n.getKey(), newTools.keySet());
-                    mcpSyncServerDelegate.removeTool(n.getKey());
-                    toolsRemoved.add(n.getKey());
-                }
-            }
-
-            return ToolDecoratorService.SetSyncClientResult.builder()
-                    .toolsAdded(toolsAdded)
-                    .toolsRemoved(toolsRemoved)
-                    .tools(tools)
-                    .providers(providersCreated)
-                    .build();
-        } catch (Exception e) {
-            return parseToolExceptionFail(e, m, existing, deployService);
-        }
+        return mcpClient;
     }
 
     private boolean containsToolCallbackProviders(ToolDecoratorService.McpServerToolState mcpServerToolState) {
@@ -316,142 +239,6 @@ class SetClients {
                 && !CollectionUtils.isEmpty(mcpServerToolState.toolCallbackProviders());
     }
 
-    private List<ToolDecoratorService.CreateToolCallbackProviderResult> toToolCallbackProvider(McpSchema.ListToolsResult listToolsResult,
-                                                                                               DelegateMcpClient mcpSyncClient,
-                                                                                               McpServerToolStates.DeployedService deployService) {
-        return listToolsResult.tools().stream()
-                .map(t -> createToolCallbackProvider(mcpSyncClient, t, deployService))
-                .collect(Collectors.toCollection(ArrayList::new));
-    }
-
-    private @NotNull ToolDecoratorService.CreateToolCallbackProviderResult createToolCallbackProvider(DelegateMcpClient mcpSyncClient,
-                                                                                                      McpSchema.Tool t,
-                                                                                                      McpServerToolStates.DeployedService deployedService) {
-        try {
-            var f = buildPassThroughToolCallback(mcpSyncClient, t, deployedService);
-
-            return ToolDecoratorService.CreateToolCallbackProviderResult.builder()
-                    .toolName(t)
-                    .provider(new StaticToolCallbackProvider(f))
-                    .build();
-        } catch (JsonProcessingException e) {
-            log.error("Error resolving  tool callback provider for tools {}", t.name(), e);
-            return ToolDecoratorService.CreateToolCallbackProviderResult.builder()
-                    .e(e)
-                    .build();
-        }
-    }
-
-    private @NotNull PassthroughFunctionToolCallback buildPassThroughToolCallback(DelegateMcpClient mcpSyncClient,
-                                                                                  McpSchema.Tool t,
-                                                                                  McpServerToolStates.DeployedService deployedService) throws JsonProcessingException {
-        String toolName = getToolName(mcpSyncClient.getClientInfo().name(), t.name());
-        var toolDefinition = DefaultToolDefinition.builder()
-                .name(toolName)
-                .description(t.description())
-                .inputSchema(objectMapper.writeValueAsString(t.inputSchema()))
-                .build();
-
-        BiFunction<String, ToolContext, String> toolFunction = (i, o) -> {
-            log.info("Running tool callback for {}.", toolName);
-            try {
-                McpSchema.CallToolResult value = mcpSyncClient.callTool(new McpSchema.CallToolRequest(t.name(), i));
-                if (value.isError() && CollectionUtils.isEmpty(value.content())) {
-                    return """
-                            { "error": "true", "message": "Unknown error." }
-                            """;
-                } else {
-                    if (value.content().size() == 1) {
-                        return parseResponseItem(value.content().getFirst());
-                    } else {
-                        log.error("Found content size greater than 1. Not knowing what to do. Only returning first.");
-                        return parseResponseItem(value.content().getFirst());
-                    }
-                }
-            } catch (Exception e) {
-                log.error("Error performing tool call {}", e.getMessage(), e);
-                return "Could not process tool call result %s from tool %s with err %s."
-                        .formatted(String.valueOf(i), t.name(), e.getMessage());
-            }
-        };
-        var f = new PassthroughFunctionToolCallback(toolFunction, toolDefinition);
-        return f;
-    }
-
-    private static String parseResponseItem(McpSchema.Content first) {
-        return switch(first) {
-            case McpSchema.EmbeddedResource embeddedResource -> {
-                log.error("Found unknown embedded resource");
-                throw new RuntimeException("Unimplemented");
-            }
-            case McpSchema.ImageContent imageContent -> {
-                log.error("Found unknown image resource");
-                throw new RuntimeException("Unimplemented");
-            }
-            case McpSchema.TextContent(List<McpSchema.Role> audience, Double priority, String text) -> {
-                yield text;
-            }
-        };
-    }
-
-    private static @NotNull String getToolName(String serviceName, String toolName) {
-        log.info("Getting tool name for service {}, tool name {}", serviceName, toolName);
-        String formatted = "%s-%s".formatted(doReplaceName(serviceName), toolName);
-        return formatted;
-    }
-
-    private static @NotNull String doReplaceName(String serviceName) {
-        return serviceName.replace("replace-name - ", "");
-    }
-
-    private static void addToErr(ToolDecoratorService.CreateToolCallbackProviderResult p, Set<String> toolErrors) {
-        if (p.e() == null) {
-            toolErrors.add("Unknown error creating tool callback for %s".formatted(p.toolName().name()));
-        } else {
-            toolErrors.add("Error creating tool callback for %s: %s".formatted(p.toolName().name(), p.e().getMessage()));
-        }
-    }
-
-    private static ToolDecoratorService.SetSyncClientResult parseToolExceptionFail(Exception e,
-                                                                                   DelegateMcpClient mcpClient, McpServerToolStates.DeployedService deployService) {
-        log.error("Error when attempting to retrieve tools: {}", e.getMessage(), e);
-        mcpClient.setError(e.getMessage());
-        return ToolDecoratorService.SetSyncClientResult.builder()
-                .err(e.getMessage())
-                .build();
-    }
-
-    private static ToolDecoratorService.SetSyncClientResult parseToolExceptionFail(Exception e,
-                                                                                   DelegateMcpClient mcpClient,
-                                                                                   Map<String, ToolDecoratorService.ToolCallbackDescriptor> existing,
-                                                                                   McpServerToolStates.DeployedService deployService) {
-        log.error("Error when attempting to retrieve tools: {}", e.getMessage(), e);
-        mcpClient.setError(e.getMessage());
-        return ToolDecoratorService.SetSyncClientResult.builder()
-                .toolsRemoved(existing.keySet())
-                .err(e.getMessage())
-                .build();
-    }
-
-    private static @NotNull HashMap<String, ToolDecoratorService.ToolCallbackDescriptor> toExistingToolCallbackProviders(ToolDecoratorService.McpServerToolState removedState) {
-        if (removedState == null) {
-            log.info("Removed state was null.");
-            return new HashMap<>();
-        }
-
-        List<ToolCallbackProvider> removedProviders = Optional.ofNullable(removedState.toolCallbackProviders()).orElse(new ArrayList<>());
-
-        var existing = new HashMap<String, ToolDecoratorService.ToolCallbackDescriptor>();
-
-        for (int i =0; i < removedProviders.size(); i++) {
-            var provider = removedProviders.get(i);
-            for (ToolCallback toolCallback : provider.getToolCallbacks()) {
-                log.info("Found removed {}", toolCallback.getToolDefinition().name());
-                existing.put(toolCallback.getToolDefinition().name(), new ToolDecoratorService.ToolCallbackDescriptor(provider, toolCallback));
-            }
-        }
-        return existing;
-    }
 
     public interface DelegateMcpClient {
 

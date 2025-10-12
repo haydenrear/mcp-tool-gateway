@@ -10,6 +10,7 @@ import com.hayden.mcptoolgateway.tool.tool_state.McpSyncServerDelegate;
 import com.hayden.mcptoolgateway.tool.TestUtil;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.ToolModels;
+import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -93,7 +94,7 @@ class RedeployTest {
     @Test
     void shouldSuccessfullyRedeployWhenNoErrors() {
         // Given
-        RedeployFunction.RedeployDescriptor successDescriptor = RedeployFunction.RedeployDescriptor.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor successDescriptor = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                 .isSuccess(true)
                 .build();
 
@@ -112,7 +113,7 @@ class RedeployTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(new McpSchema.Tool("some-tool", "a tool", JsonSchemaGenerator.generateForType(String.class))), null));
 
         // When
-        Redeploy.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
 
         assertThat(this.toolGatewayConfigProperties.getArtifactCache()
                 .resolve(this.toolGatewayConfigProperties.getDeployableMcpServers().get("test-rollback-server")
@@ -128,7 +129,7 @@ class RedeployTest {
         // Given - Ensure copyToArtifactPath file exists
         TestUtil.writeToCopyTo("original content".getBytes(), deployableMcpServer);
 
-        RedeployFunction.RedeployDescriptor failedDescriptor = RedeployFunction.RedeployDescriptor.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor failedDescriptor = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                 .isSuccess(false)
                 .err("Deploy failed")
                 .build();
@@ -149,7 +150,7 @@ class RedeployTest {
         when(mockClient.isInitialized()).thenReturn(true);
 
         // When
-        Redeploy.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
 
         // Then
         verify(redeployFunction).performRedeploy(deployableMcpServer);
@@ -171,7 +172,7 @@ class RedeployTest {
                         .copyToArtifactPath(nonExistentBinary)
                         .build();
 
-        RedeployFunction.RedeployDescriptor failedDescriptor = RedeployFunction.RedeployDescriptor.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor failedDescriptor = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                 .isSuccess(false)
                 .err("Deploy failed")
                 .build();
@@ -189,7 +190,7 @@ class RedeployTest {
                 .thenReturn(Result.err(new DynamicMcpToolCallbackProvider.McpError("Deploy failed")));
 
         // When
-        Redeploy.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, serverWithoutBinary, toolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, serverWithoutBinary, toolState);
         
         // Then
         verify(redeployFunction).performRedeploy(serverWithoutBinary);
@@ -199,7 +200,7 @@ class RedeployTest {
     @Test
     void shouldHandleConnectionErrorAfterSuccessfulDeploy() {
         // Given
-        RedeployFunction.RedeployDescriptor successDescriptor = RedeployFunction.RedeployDescriptor.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor successDescriptor = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                 .isSuccess(true)
                 .build();
 
@@ -216,7 +217,7 @@ class RedeployTest {
                 .thenReturn(Result.err(new DynamicMcpToolCallbackProvider.McpError("Connection failed")));
 
         // When
-        Redeploy.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
 
         // Then
         verify(redeployFunction).performRedeploy(deployableMcpServer);
@@ -227,7 +228,7 @@ class RedeployTest {
         // Given - Create copyToArtifactPath that exists
         TestUtil.writeToCopyTo("original content".getBytes(), deployableMcpServer);
 
-        RedeployFunction.RedeployDescriptor failedDescriptor = RedeployFunction.RedeployDescriptor.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor failedDescriptor = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                 .isSuccess(false)
                 .err("Deploy failed")
                 .build();
@@ -248,7 +249,7 @@ class RedeployTest {
         when(mockClient.isInitialized()).thenReturn(false);
 
         // When
-        Redeploy.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
 
         // Then
         verify(redeployFunction).performRedeploy(deployableMcpServer);
@@ -257,7 +258,7 @@ class RedeployTest {
     @Test
     void shouldHandleSuccessfulRedeployWithToolsAdded() {
         // Given
-        RedeployFunction.RedeployDescriptor successDescriptor = RedeployFunction.RedeployDescriptor.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor successDescriptor = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                 .isSuccess(true)
                 .build();
 
@@ -278,7 +279,7 @@ class RedeployTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(testTool), null));
 
         // When
-        Redeploy.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
 
         // Then
         verify(redeployFunction).performRedeploy(deployableMcpServer);

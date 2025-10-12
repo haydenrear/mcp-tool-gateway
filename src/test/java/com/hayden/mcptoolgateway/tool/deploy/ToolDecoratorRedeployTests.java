@@ -7,6 +7,7 @@ import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.tool_state.McpSyncServerDelegate;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.ToolModels;
+import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -151,7 +152,7 @@ class ToolDecoratorRedeployTests {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("test-rollback-server");
         
-        Redeploy.RedeployResultWrapper mockResult = Redeploy.RedeployResultWrapper.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper mockResult = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper.builder()
                 .redeployResult(DeployModels.RedeployResult.builder()
                         .tools(Set.of("new-tool"))
                         .toolsAdded(Set.of("new-tool"))
@@ -169,7 +170,7 @@ class ToolDecoratorRedeployTests {
                 });
 
         when(redeployFunction.performRedeploy(testServer))
-                .thenReturn(RedeployFunction.RedeployDescriptor.builder().isSuccess(true).build());
+                .thenReturn(ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder().isSuccess(true).build());
 
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
@@ -181,7 +182,7 @@ class ToolDecoratorRedeployTests {
 
         // When
         String jsonResult = objectMapper.writeValueAsString(
-                redeployToolDecorator.parseRedeployResult(redeployRequest, testServer));
+                redeployToolDecorator.doRedeploy(redeployRequest, testServer));
 
         // Then
         assertThat(jsonResult).isNotNull();
@@ -202,7 +203,7 @@ class ToolDecoratorRedeployTests {
         toolDecoratorService.doPerformInit();
 
         // When
-        DeployModels.RedeployResult result = redeployToolDecorator.parseRedeployResult(redeployRequest, testServer);
+        DeployModels.RedeployResult result = redeployToolDecorator.doRedeploy(redeployRequest, testServer);
 
         // Then
         assertThat(result.deployErr()).contains("non-existent-server was not contained in set of deployable MCP servers");
@@ -213,7 +214,7 @@ class ToolDecoratorRedeployTests {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("wrong-server-name");
         
-        Redeploy.RedeployResultWrapper mockResult = Redeploy.RedeployResultWrapper.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper mockResult = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper.builder()
                 .redeployResult(DeployModels.RedeployResult.builder()
                         .tools(new HashSet<>())
                         .build())
@@ -229,7 +230,7 @@ class ToolDecoratorRedeployTests {
                 });
 
         when(redeployFunction.performRedeploy(testServer))
-                .thenReturn(RedeployFunction.RedeployDescriptor.builder().isSuccess(true).build());
+                .thenReturn(ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder().isSuccess(true).build());
 
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
@@ -239,7 +240,7 @@ class ToolDecoratorRedeployTests {
         toolDecoratorService.doPerformInit();
 
         // When (single server should trigger fallback)
-        DeployModels.RedeployResult result = redeployToolDecorator.parseRedeployResult(redeployRequest, testServer);
+        DeployModels.RedeployResult result = redeployToolDecorator.doRedeploy(redeployRequest, testServer);
 
         assertThat(result.deployErr()).isNotBlank();
 
@@ -250,7 +251,7 @@ class ToolDecoratorRedeployTests {
         // Given
         ToolDecoratorService.McpServerToolState failedState = ToolDecoratorService.McpServerToolState.builder()
                 .toolCallbackProviders(null) // Empty providers
-                .lastDeploy(RedeployFunction.RedeployDescriptor.builder()
+                .lastDeploy(ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                         .isSuccess(false)
                         .err("Deploy failed")
                         .build())
@@ -300,7 +301,7 @@ class ToolDecoratorRedeployTests {
         // Given
         ToolDecoratorService.McpServerToolState stateWithDeployError = ToolDecoratorService.McpServerToolState.builder()
                 .toolCallbackProviders(new ArrayList<>())
-                .lastDeploy(RedeployFunction.RedeployDescriptor.builder()
+                .lastDeploy(ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                         .isSuccess(false)
                         .err("Deployment error")
                         .build())
@@ -329,7 +330,7 @@ class ToolDecoratorRedeployTests {
         // Given
         ToolModels.Redeploy redeployRequest = new ToolModels.Redeploy("test-rollback-server");
         
-        Redeploy.RedeployResultWrapper mockResult = Redeploy.RedeployResultWrapper.builder()
+        ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper mockResult = ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper.builder()
                 .redeployResult(DeployModels.RedeployResult.builder()
                         .tools(Set.of("new-tool"))
                         .deployState(DeployModels.DeployState.DEPLOY_FAIL)
@@ -347,7 +348,7 @@ class ToolDecoratorRedeployTests {
                 });
 
         when(redeployFunction.performRedeploy(testServer))
-                .thenReturn(RedeployFunction.RedeployDescriptor.builder().isSuccess(true).build());
+                .thenReturn(ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder().isSuccess(true).build());
 
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
@@ -357,7 +358,7 @@ class ToolDecoratorRedeployTests {
         toolDecoratorService.doPerformInit();
 
         // When
-        redeployToolDecorator.parseRedeployResult(redeployRequest, testServer);
+        redeployToolDecorator.doRedeploy(redeployRequest, testServer);
 
         // Then
         verify(mcpSyncServer, atLeast(2)).notifyToolsListChanged(); // Once in init, once after redeploy
@@ -375,8 +376,8 @@ class ToolDecoratorRedeployTests {
         when(redeployFunction.performRedeploy(testServer))
                 .thenAnswer(i -> {
                     if (counter.getAndIncrement() == 0)
-                        return RedeployFunction.RedeployDescriptor.builder().isSuccess(false).err("Deploy failed").build();
-                    return RedeployFunction.RedeployDescriptor.builder().isSuccess(true)
+                        return ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder().isSuccess(false).err("Deploy failed").build();
+                    return ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder().isSuccess(true)
                             .build();
                 });
 
@@ -389,7 +390,7 @@ class ToolDecoratorRedeployTests {
         toolDecoratorService.doPerformInit();
 
         // When
-        redeployToolDecorator.parseRedeployResult(redeployRequest, testServer);
+        redeployToolDecorator.doRedeploy(redeployRequest, testServer);
 
         // Then
         verify(mcpSyncServer, times(1)).notifyToolsListChanged(); // Only once in init, not after rollback

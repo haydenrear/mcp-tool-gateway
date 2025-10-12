@@ -1,9 +1,9 @@
 package com.hayden.mcptoolgateway.tool;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
-import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
-import io.micrometer.common.util.StringUtils;
+import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
+import com.hayden.utilitymodule.free.Free;
 import io.modelcontextprotocol.client.transport.AuthAwareHttpSseClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.annotation.PostConstruct;
@@ -34,21 +34,9 @@ public class ToolDecoratorService {
     @Builder(toBuilder = true)
     public record McpServerToolState(
             List<ToolCallbackProvider> toolCallbackProviders,
-            RedeployFunction.RedeployDescriptor lastDeploy,
+            ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor lastDeploy,
             ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer,
             List<AddClient> added) { }
-
-    @Builder(toBuilder = true)
-    public record SetSyncClientResult(
-            Set<String> tools,
-            Set<String> toolsAdded,
-            Set<String> toolsRemoved,
-            String err,
-            List<ToolCallbackProvider> providers) {
-        public boolean wasSuccessful() {
-            return StringUtils.isBlank(err);
-        }
-    }
 
     @Autowired
     ToolGatewayConfigProperties toolGatewayConfigProperties;
@@ -56,6 +44,8 @@ public class ToolDecoratorService {
     List<ToolDecorator> toolDecorators;
     @Autowired
     McpServerToolStates toolStates;
+    @Autowired
+    ToolDecoratorInterpreter toolDecoratorInterpreter;
 
     @PostConstruct
     public void init() {
@@ -72,7 +62,7 @@ public class ToolDecoratorService {
 
     public record AddClient(String serverName, String userName, String hostName)  {}
 
-    public record AddSyncClientResult(boolean success, SetSyncClientResult underlying) {
+    public record AddSyncClientResult(boolean success, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult underlying) {
         public AddSyncClientResult(boolean success) {
             this(success, null);
         }
@@ -85,7 +75,7 @@ public class ToolDecoratorService {
             return new AddSyncClientResult(true);
         }
 
-        var m = toolStates.setMcpClient(
+        var setE = toolStates.setMcpClient(
                 new McpServerToolStates.DeployedService(name, serverName.userName),
                 this.toolStates.copyOf().get(serverName.serverName),
                 new NamedClientMcpTransport(
@@ -93,13 +83,20 @@ public class ToolDecoratorService {
                         AuthAwareHttpSseClientTransport.authAwareBuilder(serverName.hostName)
                                 .build()));
 
-        if (m != null && m.wasSuccessful())
-            this.toolStates.addClient(serverName);
+        var set = Free.parse(setE, toolDecoratorInterpreter);
 
-        Optional.ofNullable(m)
-                .map(s -> McpServerToolState.builder().toolCallbackProviders(m.providers).build())
-                .ifPresent(toolState -> this.toolStates.addUpdateToolState(name, toolState));
-        return new AddSyncClientResult(m != null && m.wasSuccessful(), m);
+        if (set instanceof ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult m) {
+            if (m.wasSuccessful())
+                this.toolStates.addClient(serverName);
+
+            Optional.of(m)
+                    .map(s -> McpServerToolState.builder().toolCallbackProviders(m.providers()).build())
+                    .ifPresent(toolState -> this.toolStates.addUpdateToolState(name, toolState));
+            return new AddSyncClientResult(m.wasSuccessful(), m);
+        }
+
+        return new AddSyncClientResult(false);
+
     }
 
     private void buildTools() {
@@ -110,10 +107,15 @@ public class ToolDecoratorService {
                 .flatMap(d -> {
                     try {
                         var m = toolStates.setMcpClient(new McpServerToolStates.DeployedService(d.getKey(), SYSTEM_ID), McpServerToolState.builder().build());
-                        return Optional.ofNullable(m)
-                                .stream()
-                                .flatMap(s -> Stream.of(
-                                        Map.entry(d.getKey(), McpServerToolState.builder().deployableMcpServer(d.getValue()).toolCallbackProviders(m.providers).build())));
+                        var toolDecoratorResult = Free.parse(m, toolDecoratorInterpreter);
+                        if (toolDecoratorResult instanceof ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult s) {
+                            return Stream.of(
+                                    Map.entry(d.getKey(), McpServerToolState.builder().deployableMcpServer(d.getValue()).toolCallbackProviders(s.providers()).build()));
+                        } else {
+                            log.error("Found unknown tool decorator result {}", toolDecoratorResult);
+                        }
+
+                        return Stream.empty();
                     } catch (Exception e) {
                         log.error("Could not build MCP tools {} with {}.",
                                 d.getKey(), e.getMessage(), e);
@@ -132,5 +134,7 @@ public class ToolDecoratorService {
                 .map(td -> td.decorate(decoratedTools))
                 .forEach(this.toolStates::addUpdateToolState);
    }
+
+   public void interpretToolStateChanges(ToolDecorator.ToolDecoratorToolStateUpdate updates) {}
 
 }

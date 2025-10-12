@@ -1,6 +1,7 @@
 package com.hayden.mcptoolgateway.kubernetes;
 
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
+import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import io.modelcontextprotocol.client.transport.AuthResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -39,7 +40,7 @@ public class KubernetesFilter extends OncePerRequestFilter {
 
         if (!a.success()) {
             response.getWriter()
-                    .write("Failed to resolve MCP client - %s.".formatted(Optional.ofNullable(a.underlying()).map(ToolDecoratorService.SetSyncClientResult::err).orElse("unknown error.")));
+                    .write("Failed to resolve MCP client - %s.".formatted(Optional.ofNullable(a.underlying()).map(ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult::err).orElse("unknown error.")));
             return;
         }
 

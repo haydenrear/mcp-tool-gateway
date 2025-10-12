@@ -4,6 +4,7 @@ import com.hayden.commitdiffmodel.codegen.client.*;
 import com.hayden.commitdiffmodel.codegen.types.*;
 import com.hayden.commitdiffmodel.codegen.types.Error;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
+import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +61,7 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
     }
 
     @Override
-    public RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DeployableMcpServer name) {
+    public ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DeployableMcpServer name) {
         var execute = BuildGraphQLQuery.newRequest()
                 .options(CodeBuildOptions.newBuilder()
                         .writeToFile(true)
@@ -90,10 +91,10 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
         return from(block);
     }
 
-    public RedeployDescriptor from(CodeBuildResult result) {
+    public ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor from(CodeBuildResult result) {
         log.info("Rebuilt {}", result);
         var r = Optional.ofNullable(result)
-                .map(rd -> RedeployDescriptor.builder()
+                .map(rd -> ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                         .err(CollectionUtils.isEmpty(result.getError())
                                 ? null
                                 : String.join(", ", StreamUtil.toStream(result.getError()).map(Error::toString).toList()))
@@ -104,7 +105,7 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
                                 ? null
                                 : Paths.get(result.getArtifactPaths().getFirst()))
                         .build())
-                .orElseGet(() -> RedeployDescriptor.builder()
+                .orElseGet(() -> ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                         .err("Code build result was null!")
                         .build());
         return r;
