@@ -80,9 +80,11 @@ public class ToolDecoratorService {
 
     public AddSyncClientResult createAddClient(AddClient serverName) {
         String name = serverName.serverName + serverName.userName;
+
         if (this.toolStates.contains(name)) {
             return new AddSyncClientResult(true);
         }
+
         var m = toolStates.setMcpClient(
                 new McpServerToolStates.DeployedService(name, serverName.userName),
                 this.toolStates.copyOf().get(serverName.serverName),
