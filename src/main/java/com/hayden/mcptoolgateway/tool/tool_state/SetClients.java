@@ -8,9 +8,14 @@ import com.hayden.utilitymodule.concurrent.striped.StripedLock;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.micrometer.common.util.StringUtils;
+import io.modelcontextprotocol.client.McpAsyncClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.AuthResolver;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.client.transport.StdioClientTransport;
+import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.util.Assert;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,7 +31,9 @@ import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.ReflectionUtils;
 
+import java.net.http.HttpRequest;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -144,7 +151,8 @@ class SetClients {
     }
 
 
-    private @NotNull ToolDecoratorService.SetSyncClientResult createSetSyncClient(McpSyncClient m, String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    private @NotNull ToolDecoratorService.SetSyncClientResult createSetSyncClient(McpSyncClient m, String deployService,
+                                                                                  ToolDecoratorService.McpServerToolState mcpServerToolState) {
 
         var mcpClient = this.syncClients.compute(deployService, (key, prev) -> {
             if (prev == null) {
@@ -403,25 +411,46 @@ class SetClients {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class DelegateMcpSyncClient {
-        private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock() ;
+
+        private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
         McpSyncClient client;
+
+        boolean isStdio;
 
         /**
          * TODO: last error to return - or last error log file
          */
         String error;
 
+        public DelegateMcpSyncClient(McpSyncClient client) {
+            this.client = client;
+            this.isStdio = isStdio(client);
+        }
+
+        public DelegateMcpSyncClient(String error) {
+            this.error = error;
+            this.isStdio = true;
+        }
+
         public McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
             try {
-                readWriteLock.readLock().lock();
+                if (isStdio) {
+                    readWriteLock.writeLock().lock();
+                } else {
+                    readWriteLock.readLock().lock();
+                }
                 var resolved = AuthResolver.resolveBearerHeader();
                 if (resolved != null)
                     callToolRequest.arguments().put(ToolDecoratorService.McpServerToolState.AUTH_BODY_FIELD, resolved);
                 var called = client.callTool(callToolRequest);
                 return called;
             } finally {
-                readWriteLock.readLock().unlock();
+                if (isStdio) {
+                    readWriteLock.writeLock().unlock();
+                } else {
+                    readWriteLock.readLock().unlock();
+                }
             }
         }
 
@@ -429,6 +458,7 @@ class SetClients {
             try {
                 this.readWriteLock.writeLock().lock();
                 this.client = client;
+                this.isStdio = client == null || isStdio(client);
             } finally {
                 this.readWriteLock.writeLock().unlock();
             }
@@ -443,13 +473,22 @@ class SetClients {
             }
         }
 
-        public DelegateMcpSyncClient(McpSyncClient client) {
-            this.client = client;
+        private boolean isStdio(McpSyncClient client) {
+            try {
+                var delegate = client.getClass().getDeclaredField("delegate");
+                ReflectionUtils.makeAccessible(delegate);
+                McpAsyncClient asyncClient = (McpAsyncClient) ReflectionUtils.getField(delegate, client);
+                var clientTransportField = McpAsyncClient.class.getDeclaredField("transport");
+                ReflectionUtils.makeAccessible(clientTransportField);
+                var clientTransport = (McpClientTransport) ReflectionUtils.getField(clientTransportField, asyncClient);
+                return clientTransport instanceof StdioClientTransport;
+            } catch (NoSuchFieldException e) {
+                log.error("Could not get delegate field.", e);
+                return true;
+            }
         }
 
-        public DelegateMcpSyncClient(String error) {
-            this.error = error;
-        }
+
 
     }
 }
