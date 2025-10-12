@@ -1,0 +1,67 @@
+package com.hayden.mcptoolgateway.config;
+
+import com.hayden.mcptoolgateway.kubernetes.KubernetesFilter;
+import com.hayden.utilitymodule.security.KeyConfigProperties;
+import com.hayden.utilitymodule.security.KeyFiles;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.SecurityContext;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.security.web.SecurityFilterChain;
+
+import java.security.KeyPair;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.util.UUID;
+
+@Configuration
+@Import({KeyConfigProperties.class, KeyFiles.class})
+public class ResourceServerConfig {
+
+    @Bean
+    @ConditionalOnBean(HttpSecurity.class)
+    SecurityFilterChain securityFilterChain(HttpSecurity http, KubernetesFilter kubernetesFilter) throws Exception {
+        return http.oauth2ResourceServer(res -> res.jwt(Customizer.withDefaults()))
+                .addFilterAfter(kubernetesFilter, BearerTokenAuthenticationFilter.class)
+                .authorizeHttpRequests(authorizeRequests -> authorizeRequests.anyRequest().authenticated())
+                .csrf(CsrfConfigurer::disable)
+                .cors(Customizer.withDefaults())
+                .build();
+    }
+
+    @Bean
+    JwtDecoder jwtDecoder(KeyFiles keyFiles) {
+        var keyPair = keyFiles.getKeyPair();
+        return NimbusJwtDecoder.withPublicKey((RSAPublicKey) keyPair.getPublic()).build();
+    }
+
+    @Bean
+    NimbusJwtEncoder jwtEncoder(KeyFiles keyFiles) {
+        return new NimbusJwtEncoder(jwkSource(keyFiles));
+    }
+
+    @Bean
+    JWKSource<SecurityContext> jwkSource(KeyFiles keyFiles) {
+        KeyPair keyPair = keyFiles.getKeyPair();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+        RSAKey rsaKey = new RSAKey.Builder(publicKey)
+                .privateKey(privateKey)
+                .keyID(UUID.randomUUID().toString())
+                .build();
+        JWKSet jwkSet = new JWKSet(rsaKey);
+        return new ImmutableJWKSet<>(jwkSet);
+    }
+}

@@ -20,14 +20,12 @@ public class KubernetesFilter extends OncePerRequestFilter {
 
     private final ToolDecoratorService toolDecoratorService;
 
-    private final AuthResolver authResolver;
-
     private final K3sService deployment;
 
     @Override
     protected void doFilterInternal(@NotNull HttpServletRequest request,
                                     @NotNull HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+                                    @NotNull FilterChain filterChain) throws ServletException, IOException {
 
         var d = deployment.doDeployGetValidDeployment();
 
