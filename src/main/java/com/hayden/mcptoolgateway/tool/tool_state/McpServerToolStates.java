@@ -170,7 +170,11 @@ public class McpServerToolStates {
     }
 
     public void addUpdateToolState(ToolDecorator.ToolDecoratorToolStateUpdate toolDecoratorToolStateUpdate) {
-        this.addUpdateToolState(toolDecoratorToolStateUpdate.name(), toolDecoratorToolStateUpdate.toolStates());
+        switch(toolDecoratorToolStateUpdate) {
+            case ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate addToolStateUpdate -> {
+                this.addUpdateToolState(addToolStateUpdate.name(), toolDecoratorToolStateUpdate.toolStates());
+            }
+        }
     }
 
     public void executeToolStateChanges(List<ToolDecorator.McpServerToolStateChange> mcpServerToolStateChanges) {

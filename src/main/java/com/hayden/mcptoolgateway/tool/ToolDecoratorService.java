@@ -117,7 +117,7 @@ public class ToolDecoratorService {
                                     Map.entry(
                                             d.getKey(),
                                             new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
-                                                    new ToolDecorator.ToolDecoratorToolStateUpdate(d.getKey(), s.toolState(), s.getToolStateChanges()))));
+                                                    new ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate(d.getKey(), s.toolState(), s.getToolStateChanges()))));
                         } else {
                             log.error("Found unknown tool decorator result {}", toolDecoratorResult);
                         }

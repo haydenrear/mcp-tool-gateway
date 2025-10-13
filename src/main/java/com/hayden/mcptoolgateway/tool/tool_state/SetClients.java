@@ -124,7 +124,7 @@ class SetClients {
                 .flatMap(sc -> Free
                         .<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult>liftF(
                                 new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
-                                        new ToolDecorator.ToolDecoratorToolStateUpdate(deployService, mcpServerToolState, sc.getToolStateChanges())))
+                                        new ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate(deployService, mcpServerToolState, sc.getToolStateChanges())))
                         .flatMap(s -> Free.pure(sc)));
     }
 

@@ -29,6 +29,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -272,33 +273,39 @@ public class ToolDecoratorInterpreter
             case ToolDecoratorEffect.AddManyMcpServerToolState addMcpServerToolState -> {
 //                TODO: tool decorators should be effectful also
                 yield this.toolStates.doOverWriteState(() -> {
-                    var toDecorate = MapFunctions.CollectMap(
-                            addMcpServerToolState.stateUpdate
+
+                    record StateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates,
+                                       List<ToolDecorator.McpServerToolStateChange> toolStateChanges) {}
+
+                    var toDecorate = addMcpServerToolState.stateUpdate
                                     .entrySet()
                                     .stream()
-                                    .map(e -> Map.entry(e.getKey(), e.getValue().stateUpdate.toolStates())));
-
-                    this.toolDecorators.stream()
-                            .filter(ToolDecorator::isEnabled)
-                            .map(td -> td.decorate(toDecorate))
-                            .forEach(tdu -> addMcpServerToolState.stateUpdate.put(tdu.name(),
-                                    new ToolDecoratorEffect.AddMcpServerToolState(tdu)));
-
-                    var toolStateUpdates = MapFunctions.CollectMap(
-                            addMcpServerToolState.stateUpdate
-                                    .entrySet()
-                                    .stream()
-                                    .map(e -> Map.entry(e.getKey(), e.getValue().stateUpdate.toolStates())));
-
-                    this.toolStates.addAllUpdates(toolStateUpdates);
-
-                    var toUpdateDelegateServer = addMcpServerToolState.stateUpdate
-                            .values()
-                            .stream()
-                            .flatMap(a -> a.stateUpdate.toolStateChanges().stream())
+                                    .map(e -> {
+                                        ToolDecorator.ToolDecoratorToolStateUpdate stateUpdate = e.getValue().stateUpdate;
+                                        switch(stateUpdate) {
+                                            case ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate addToolStateUpdate -> {
+                                                return new StateUpdate(addToolStateUpdate.name(), addToolStateUpdate.toolStates(), addToolStateUpdate.toolStateChanges());
+                                            }
+                                        }
+                                    })
                             .toList();
 
-                    return Free.liftF(new ToolDecoratorEffect.UpdateMcpServerWithToolChanges(toUpdateDelegateServer));
+                    var m = MapFunctions.CollectMap(toDecorate.stream().map(su -> Map.entry(su.name, su.toolStates)));
+                    var c = toDecorate.stream().flatMap(su -> su.toolStateChanges.stream())
+                            .collect(Collectors.toCollection(ArrayList::new));
+
+                    var d = new ToolDecorator.ToolDecoratorState(m, c);
+
+                    for (var t : toolDecorators) {
+                        if (t.isEnabled())  {
+                            var next = t.decorate(d);
+                            d = d.update(next);
+                        }
+                    }
+
+                    this.toolStates.addAllUpdates(d.newMcpServerState());
+
+                    return Free.liftF(new ToolDecoratorEffect.UpdateMcpServerWithToolChanges(d.stateChanges()));
                 });
 
             }

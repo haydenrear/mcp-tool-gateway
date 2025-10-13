@@ -20,6 +20,7 @@ import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -39,13 +40,16 @@ public class RedeployToolDecorator implements ToolDecorator {
     private final Redeploy redeploy;
     private final List<McpAsyncClient> mcpAsyncClients;
 
-
     @Override
-    public ToolDecoratorToolStateUpdate decorate(Map<String, ToolDecoratorService.McpServerToolState> newMcpServerState) {
-        if (newMcpServerState.values().stream().anyMatch(c -> !CollectionUtils.isEmpty(c.added())))  {
+    public ToolDecoratorToolStateUpdate decorate(ToolDecoratorState newMcpServerState) {
+        if (newMcpServerState.newMcpServerState().values().stream().anyMatch(c -> !CollectionUtils.isEmpty(c.added())))  {
             throw new RuntimeException("Attempted to do redeploy with tool state deployed with multiple replicas. Not allowed.");
         }
-        return new ToolDecoratorToolStateUpdate(RedeployFunction.REDEPLOY_MCP_SERVER, getRedeploy(newMcpServerState));
+        return new ToolDecoratorToolStateUpdate.AddToolStateUpdate(RedeployFunction.REDEPLOY_MCP_SERVER, getRedeploy(newMcpServerState.newMcpServerState()));
+    }
+
+    public ToolDecoratorToolStateUpdate decorate(Map<String, ToolDecoratorService.McpServerToolState> newMcpServerState) {
+        return decorate(new ToolDecoratorState(newMcpServerState, new ArrayList<>()));
     }
 
     @Override
@@ -193,7 +197,7 @@ public class RedeployToolDecorator implements ToolDecorator {
         this.ts.addUpdateToolState(i.deployService(), r.newToolState());
 
         if (r.didToolListChange()) {
-            var redeployed = this.decorate(this.ts.copyOf());
+            var redeployed = this.decorate(new ToolDecoratorState(this.ts.copyOf(), new ArrayList<>()));
             this.ts.addUpdateToolState(redeployed);
             ts.notifyToolsListChanged();
         }

@@ -35,7 +35,7 @@ public class Redeploy {
                     return Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult>
                                     liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.UpdateMcpServerWithToolChanges(rWrapper.toolStateChanges()))
                             .flatMap(ts -> Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
-                                    new ToolDecorator.ToolDecoratorToolStateUpdate(rWrapper.redeploy().deployService(), rWrapper.newToolState(), rWrapper.toolStateChanges()))))
+                                    new ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate(rWrapper.redeploy().deployService(), rWrapper.newToolState(), rWrapper.toolStateChanges()))))
                             .flatMap(s -> Free.pure(rWrapper));
                 })
                 .flatMap(Free::pure);

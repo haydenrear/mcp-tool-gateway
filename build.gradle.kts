@@ -24,6 +24,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.security:spring-security-core")
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
+    implementation("io.fabric8:kubernetes-client:6.11.0")
 
     testImplementation("org.wiremock:wiremock-standalone:3.9.1")
 }

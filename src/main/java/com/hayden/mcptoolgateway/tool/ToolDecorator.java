@@ -4,8 +4,6 @@ import io.modelcontextprotocol.server.McpServerFeatures;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 public interface ToolDecorator {
 
@@ -17,14 +15,43 @@ public interface ToolDecorator {
 
     }
 
-    record ToolDecoratorToolStateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates,
-                                        List<McpServerToolStateChange> toolStateChanges) {
-        public ToolDecoratorToolStateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates) {
-            this(name, toolStates, List.of());
+    sealed interface  ToolDecoratorToolStateUpdate {
+
+        ToolDecoratorService.McpServerToolState toolStates();
+
+        List<McpServerToolStateChange> toolStateChanges();
+
+
+
+        record AddToolStateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates,
+                                  List<McpServerToolStateChange> toolStateChanges) implements ToolDecoratorToolStateUpdate {
+            public AddToolStateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates) {
+                this(name, toolStates, List.of());
+            }
+        }
+
+
+    }
+
+    record ToolDecoratorState(Map<String, ToolDecoratorService.McpServerToolState> newMcpServerState,
+                              List<McpServerToolStateChange> stateChanges) {
+        public ToolDecoratorState update(ToolDecoratorToolStateUpdate update) {
+            switch (update) {
+                case ToolDecoratorToolStateUpdate.AddToolStateUpdate(
+                        String name,
+                        ToolDecoratorService.McpServerToolState toolStates,
+                        List<McpServerToolStateChange> toolStateChanges
+                ) -> {
+                    this.newMcpServerState.put(name, toolStates);
+                    stateChanges.addAll(toolStateChanges);
+                }
+            }
+
+            return this;
         }
     }
 
-    ToolDecoratorToolStateUpdate decorate(Map<String, ToolDecoratorService.McpServerToolState> newMcpServerState);
+    ToolDecoratorToolStateUpdate decorate(ToolDecoratorState newMcpServerState);
 
     boolean isEnabled();
 }
