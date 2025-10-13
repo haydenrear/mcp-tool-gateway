@@ -38,7 +38,6 @@ public class RedeployToolDecorator implements ToolDecorator {
     private final ObjectMapper objectMapper;
 
     private final Redeploy redeploy;
-    private final List<McpAsyncClient> mcpAsyncClients;
 
     @Override
     public ToolDecoratorToolStateUpdate decorate(ToolDecoratorState newMcpServerState) {
