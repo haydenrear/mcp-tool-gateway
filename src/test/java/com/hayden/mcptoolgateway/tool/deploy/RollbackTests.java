@@ -64,6 +64,7 @@ public class RollbackTests {
     void setUp() throws IOException {
         // Use the test server from yml configuration
         testServer = toolGatewayConfigProperties.getDeployableMcpServers().get("test-rollback-server");
+        testServer.setHasMany(false);
         
         // Ensure directories exist
         Files.createDirectories(testServer.directory());

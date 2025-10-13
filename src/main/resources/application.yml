@@ -57,3 +57,6 @@ spring:
         wait: only_if_started
 
 
+keystore:
+  key-path: {{PROJ_DIR}}/keys
+  key-name: cdc-key

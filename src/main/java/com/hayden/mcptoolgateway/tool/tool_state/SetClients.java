@@ -128,7 +128,7 @@ class SetClients {
             ToolDecoratorService.McpServerToolState toolState,
             String clientName,
             Supplier<Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult>> toDo) {
-        if (CollectionUtils.isEmpty(toolState.added())) {
+        if (toolState == null || CollectionUtils.isEmpty(toolState.added())) {
             return this.dynamicMcpToolCallbackProvider.killClientAndThen(clientName, toDo);
         } else {
             toolState.added()
@@ -169,7 +169,7 @@ class SetClients {
     public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult createSetClientErr(McpServerToolStates.DeployedService service,
                                                                                                DynamicMcpToolCallbackProvider.McpError m,
                                                                                                ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        this.syncClients.compute(service.id(), (key, prev) -> {
+        this.syncClients.compute(service.deployService(), (key, prev) -> {
             if (prev == null) {
                 var created = delegateMcpClientFactory.clientFactory(mcpServerToolState);
                 created.setError(m.getMessage());
@@ -209,23 +209,20 @@ class SetClients {
     @NotNull Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> setMcpClientUpdateTools(
             McpSyncClient m,
             McpServerToolStates.DeployedService deployService,
-            ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetMcpClientResult>
-                        liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.SetMcpClientUpdateTools(m, deployService, mcpServerToolState, null))
-                .flatMap(s -> {
-                    var mcpClient = s.delegate();
-                    if (containsToolCallbackProviders(mcpServerToolState)) {
-                        return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.UpdatingExistingToolDecorator(mcpClient, mcpServerToolState, deployService));
-                    } else {
-                        return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.CreateNewToolDecorator(mcpClient, deployService));
-                    }
-                });
+            ToolDecoratorService.McpServerToolState mcpServerToolState,
+            ToolDecoratorInterpreter.ToolDecoratorResult.SetMcpClientResult s) {
+        var mcpClient = s.delegate();
+        if (containsToolCallbackProviders(mcpServerToolState)) {
+            return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.UpdatingExistingToolDecorator(mcpClient, mcpServerToolState, deployService));
+        } else {
+            return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.CreateNewToolDecorator(mcpClient, deployService));
+        }
     }
 
     DelegateMcpClient doSetMcpClient(McpSyncClient m, McpServerToolStates.DeployedService deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
         var mcpClient = this.syncClients.compute(deployService.deployService(), (key, prev) -> {
             if (prev == null) {
-                return this.delegateMcpClientFactory.clientFactory(mcpServerToolState);
+                prev = this.delegateMcpClientFactory.clientFactory(mcpServerToolState);
             }
 
             prev.setClient(m);
@@ -448,6 +445,9 @@ class SetClients {
                 var clientTransport = (McpClientTransport) ReflectionUtils.getField(clientTransportField, asyncClient);
                 return clientTransport instanceof StdioClientTransport;
             } catch (NoSuchFieldException e) {
+                log.error("Could not get delegate field.", e);
+                return true;
+            } catch (Exception e){
                 log.error("Could not get delegate field.", e);
                 return true;
             }

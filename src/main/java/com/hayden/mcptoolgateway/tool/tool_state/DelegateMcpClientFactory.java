@@ -1,8 +1,10 @@
 package com.hayden.mcptoolgateway.tool.tool_state;
 
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class DelegateMcpClientFactory {
 

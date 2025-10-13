@@ -33,9 +33,6 @@ class SetClientsTest {
     @Autowired
     private DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
 
-
-
-
     @Autowired
     private McpSyncClient mockClient;
 
@@ -50,13 +47,16 @@ class SetClientsTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        mockToolState = ToolDecoratorService.McpServerToolState.builder()
-                .toolCallbackProviders(new ArrayList<>())
-                .build();
 
         // Use the test server from yml configuration
         testServer = toolGatewayConfigProperties.getDeployableMcpServers().get("test-rollback-server");
-        
+        testServer.setHasMany(false);
+
+        mockToolState = ToolDecoratorService.McpServerToolState.builder()
+                .toolCallbackProviders(new ArrayList<>())
+                .deployableMcpServer(testServer)
+                .build();
+
         // Ensure directories exist
         Files.createDirectories(testServer.directory());
         Files.createDirectories(toolGatewayConfigProperties.getArtifactCache());
@@ -93,7 +93,7 @@ class SetClientsTest {
         String clientName = "test-rollback-server";
 
         // When & Then
-        assertThat(setClients.clientHasError(clientName)).isFalse();
+        assertThat(setClients.clientHasError(new McpServerToolStates.DeployedService(clientName, ToolDecoratorService.SYSTEM_ID).clientId())).isFalse();
     }
 
     @Test
@@ -109,7 +109,7 @@ class SetClientsTest {
         setClients.setParseMcpClient(clientName, mockToolState);
 
         // Then
-        assertThat(setClients.hasClient(clientName)).isTrue();
+        assertThat(setClients.hasClient(new McpServerToolStates.DeployedService(clientName, ToolDecoratorService.SYSTEM_ID).clientId())).isTrue();
     }
 
     @Test

@@ -61,6 +61,8 @@ class RedeployTest {
         // Use the deployable server from yml configuration
         deployableMcpServer = toolGatewayConfigProperties.getDeployableMcpServers().get("test-rollback-server");
 
+        deployableMcpServer.setHasMany(false);
+
         // Ensure the copyToArtifactPath directory and cache directory exist
         Files.createDirectories(deployableMcpServer.directory());
         Files.createDirectories(toolGatewayConfigProperties.getArtifactCache());
@@ -75,6 +77,7 @@ class RedeployTest {
         toolState = ToolDecoratorService.McpServerToolState
                 .builder()
                 .toolCallbackProviders(new ArrayList<>())
+                .deployableMcpServer(deployableMcpServer)
                 .build();
 
         // Setup redeploy request

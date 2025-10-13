@@ -15,6 +15,7 @@ import com.hayden.utilitymodule.free.Effect;
 import com.hayden.utilitymodule.free.Free;
 import com.hayden.utilitymodule.free.Interpreter;
 import com.hayden.utilitymodule.result.Result;
+import com.hayden.utilitymodule.stream.StreamUtil;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -193,8 +194,8 @@ public class ToolDecoratorInterpreter
 
             public List<ToolDecorator.McpServerToolStateChange> getToolStateChanges() {
                 List<ToolDecorator.McpServerToolStateChange> changes = new ArrayList<>();
-                toAddTools.forEach(c -> changes.add(new ToolDecorator.McpServerToolStateChange.AddTool(c)));
-                toRemoveTools.forEach(c -> changes.add(new ToolDecorator.McpServerToolStateChange.RemoveTool(c)));
+                StreamUtil.toStream(toAddTools).forEach(c -> changes.add(new ToolDecorator.McpServerToolStateChange.AddTool(c)));
+                StreamUtil.toStream(toRemoveTools).forEach(c -> changes.add(new ToolDecorator.McpServerToolStateChange.RemoveTool(c)));
                 return changes;
             }
         }
@@ -225,9 +226,6 @@ public class ToolDecoratorInterpreter
                     this.toolStates.addUpdateToolState(addMcpServerToolState.stateUpdate);
                     yield Free.pure(new ToolDecoratorResult.UpdatedToolState(addMcpServerToolState.stateUpdate));
             }
-            case ToolDecoratorEffect.AfterDeployHandleMcp deployDescription -> {
-                yield deployService.apply(deployDescription);
-            }
             case ToolDecoratorEffect.SetErrorMcp setErrorMcp ->
                     Free.pure(ts.createSetClientErr(setErrorMcp.service, setErrorMcp.err, setErrorMcp.toolState));
             case ToolDecoratorEffect.SetMcpClientUpdateTools setMcpClient ->
@@ -240,7 +238,8 @@ public class ToolDecoratorInterpreter
                     client = dynamicMcpToolCallbackProvider.buildClient(buildClient.deployService().clientId());
                 }
                 if (client.isOk())
-                    yield Free.liftF(new ToolDecoratorEffect.SetMcpClientUpdateTools(client.unwrap(), buildClient.deployService, buildClient.toolState, buildClient.namedClientMcpTransport));
+                    yield Free.liftF(new ToolDecoratorEffect.SetMcpClientUpdateTools(client.unwrap(), buildClient.deployService, buildClient.toolState,
+                            buildClient.namedClientMcpTransport));
                 else
                     yield Free.liftF(new ToolDecoratorEffect.SetErrorMcp(buildClient.deployService, client.unwrapError(), buildClient.toolState));
             }
@@ -252,7 +251,7 @@ public class ToolDecoratorInterpreter
                     Free.pure(toolStates.doSetMcpClient(s.m, s.deployService, s.mcpServerToolState));
             case ToolDecoratorEffect.KillClientAndRedeploy killClientAndRedeploy -> {
                 yield toolStates.killClientAndThenFree(killClientAndRedeploy.toolState, killClientAndRedeploy.redeploy.deployService(), () -> {
-                    return Free.<ToolDecoratorEffect, ToolDecoratorResult>liftF(new ToolDecoratorEffect.PrepareRollback(killClientAndRedeploy.redeployMcpServer))
+                    Free<ToolDecoratorEffect, ToolDecoratorResult> f = Free.<ToolDecoratorEffect, ToolDecoratorResult>liftF(new ToolDecoratorEffect.PrepareRollback(killClientAndRedeploy.redeployMcpServer))
                             .flatMap(prep -> {
                                 return Free.<ToolDecoratorEffect, ToolDecoratorResult.RedeployDescriptor>
                                         liftF(new ToolDecoratorEffect.PerformRedeploy(killClientAndRedeploy.redeployMcpServer));
@@ -264,15 +263,24 @@ public class ToolDecoratorInterpreter
                                             .flatMap(redep -> doHandleRedeployOrRollback(killClientAndRedeploy, dep, redep))
                                              .flatMap(Free::pure);
                                 } else {
-                                    return Free.<ToolDecoratorEffect, ToolDecoratorResult.RedeployResultWrapper>liftF(new ToolDecoratorEffect.PerformRedeploy(killClientAndRedeploy.redeployMcpServer))
+                                    return Free.<ToolDecoratorEffect, ToolDecoratorResult.RedeployResultWrapper>liftF(
+                                            ToolDecoratorEffect.AfterDeployHandleMcp.AfterSuccessfulRedeploy.builder()
+                                                    .r(dep)
+                                                    .redeploy(killClientAndRedeploy.redeploy)
+                                                    .toolState(killClientAndRedeploy.toolState)
+                                                    .build())
                                             .flatMap(redep -> doHandleRedeployOrRollback(killClientAndRedeploy, dep, redep))
-                                             .flatMap(Free::pure);
+                                            .flatMap(Free::pure);
                                 }
                             });
+
+                    return f;
                 });
             }
+            case ToolDecoratorEffect.AfterDeployHandleMcp deployDescription ->
+                    deployService.apply(deployDescription);
             case ToolDecoratorEffect.DoRedeploy doRedeploy ->
-                    Free.pure(redeploy.doRedeploy(doRedeploy));
+                    Free.liftF(new ToolDecoratorEffect.KillClientAndRedeploy(doRedeploy.redeploy, doRedeploy.redeployMcpServer, doRedeploy.toolState));
             case ToolDecoratorEffect.PerformRedeploy performRedeploy ->
                     Free.pure(redeployFunction.performRedeploy(performRedeploy.redeployMcpServer));
             case ToolDecoratorEffect.PrepareRollback prepareRollback ->

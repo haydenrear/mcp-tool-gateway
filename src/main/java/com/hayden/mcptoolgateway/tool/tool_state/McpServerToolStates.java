@@ -145,7 +145,7 @@ public class McpServerToolStates {
             McpSyncClient m,
             McpServerToolStates.DeployedService deployService,
             ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return setClients.setMcpClientUpdateTools(m, deployService, mcpServerToolState);
+        return setClients.setMcpClientUpdateTools(m, deployService, mcpServerToolState, this.doSetMcpClient(m, deployService, mcpServerToolState));
     }
 
     public void addUpdateToolState(String name, ToolDecoratorService.McpServerToolState mcpServerToolState) {

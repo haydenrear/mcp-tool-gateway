@@ -64,11 +64,14 @@ class ToolDecoratorRedeployTests {
     private ObjectMapper objectMapper;
 
     private ToolGatewayConfigProperties.DeployableMcpServer testServer;
+    @Autowired
+    private McpServerToolStates mcpServerToolStates;
 
     @BeforeEach
     void setUp() throws IOException {
         // Use the test server from yml configuration
         testServer = toolGatewayConfigProperties.getDeployableMcpServers().get("test-rollback-server");
+        testServer.setHasMany(false);
         
         // Ensure directories exist
         Files.createDirectories(testServer.directory());
@@ -357,6 +360,9 @@ class ToolDecoratorRedeployTests {
 
         toolDecoratorService.doPerformInit();
 
+        mcpServerToolStates.addUpdateToolState(testServer.name(),
+                ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(new ArrayList<>()).deployableMcpServer(testServer).build());
+
         // When
         redeployToolDecorator.doRedeploy(redeployRequest, testServer);
 
@@ -381,7 +387,7 @@ class ToolDecoratorRedeployTests {
                             .build();
                 });
 
-        when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
+        when(dynamicMcpToolCallbackProvider.buildClient(new McpServerToolStates.DeployedService("test-rollback-server", ToolDecoratorService.SYSTEM_ID).clientId()))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.isInitialized()).thenReturn(true);
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
