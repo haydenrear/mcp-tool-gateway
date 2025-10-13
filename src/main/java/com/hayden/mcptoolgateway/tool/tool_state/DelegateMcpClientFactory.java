@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 public class DelegateMcpClientFactory {
 
     public SetClients.DelegateMcpClient clientFactory(ToolDecoratorService.McpServerToolState toolState) {
+        if (toolState == null)
+            return new SetClients.MultipleClientDelegateMcpClient();
         if (toolState.deployableMcpServer().isHasMany())
             return new SetClients.MultipleClientDelegateMcpClient();
         else

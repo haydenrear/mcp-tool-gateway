@@ -217,7 +217,7 @@ public class ToolDecoratorInterpreter
 
     private final RedeployFunction redeployFunction;
 
-    private final Redeploy redeploy;
+
 
     @Override
     public Free<ToolDecoratorEffect, ToolDecoratorResult> apply(ToolDecoratorEffect toolDecoratorEffect) {

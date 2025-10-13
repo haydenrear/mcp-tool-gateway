@@ -59,6 +59,8 @@ public class RollbackTests {
     private ToolGatewayConfigProperties toolGatewayConfigProperties;
 
     private ToolGatewayConfigProperties.DeployableMcpServer testServer;
+    @Autowired
+    private McpServerToolStates mcpServerToolStates;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -76,6 +78,12 @@ public class RollbackTests {
             Files.write(testServer.copyToArtifactPath(), "test copyToArtifactPath content".getBytes());
         }
 
+        mcpServerToolStates.addUpdateToolState(
+                "test-rollback-server",
+                ToolDecoratorService.McpServerToolState.builder()
+                        .deployableMcpServer(testServer)
+                        .toolCallbackProviders(new ArrayList<>())
+                        .build());
         // Reset mocks
         reset(redeployFunction, dynamicMcpToolCallbackProvider, mcpSyncServerDelegate, mockClient);
     }
@@ -126,8 +134,8 @@ public class RollbackTests {
         // When
         ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(
                 redeployRequest, 
-                testServer, 
-                ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(new ArrayList<>()).build()
+                testServer,
+                getToolState()
         );
 
         // Then
@@ -149,8 +157,8 @@ public class RollbackTests {
 
         // When
         ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClient(
-                clientName, 
-                ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(new ArrayList<>()).build()
+                clientName,
+                getToolState()
         );
 
         // Then
@@ -173,8 +181,8 @@ public class RollbackTests {
 
         // When
         ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClient(
-                clientName, 
-                ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(new ArrayList<>()).build()
+                clientName,
+                getToolState()
         );
 
         // Then
@@ -218,7 +226,7 @@ public class RollbackTests {
         ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(
                 redeployRequest, 
                 serverWithoutBinary, 
-                ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(new ArrayList<>()).build()
+                getToolState()
         );
 
         // Then
@@ -263,7 +271,7 @@ public class RollbackTests {
 
         ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult firstResult = setClients.setParseMcpClient(
                 clientName,
-                ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(new ArrayList<>()).build()
+                getToolState()
         );
 
         // Then update with different tool
@@ -286,5 +294,9 @@ public class RollbackTests {
         
         verify(mcpSyncServerDelegate, times(2)).addTool(any());
         verify(mcpSyncServerDelegate).removeTool("test-rollback-server-tool1");
+    }
+
+    private ToolDecoratorService.McpServerToolState getToolState() {
+        return ToolDecoratorService.McpServerToolState.builder().deployableMcpServer(testServer).toolCallbackProviders(new ArrayList<>()).build();
     }
 }
