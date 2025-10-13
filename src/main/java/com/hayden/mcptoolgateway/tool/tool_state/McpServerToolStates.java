@@ -57,7 +57,7 @@ public class McpServerToolStates {
         return new HashMap<>(mcpServerToolStates);
     }
 
-     public void doOverState(Runnable toDo) {
+     public void doOverWriteState(Runnable toDo) {
         try {
             lock.writeLock().lock();
             toDo.run();
@@ -76,7 +76,16 @@ public class McpServerToolStates {
         }
     }
 
-    public <U> U doOverState(Supplier<U> toDo) {
+    public <U> U doOverReadState(Supplier<U> toDo) {
+        try {
+            lock.readLock().lock();
+            return toDo.get();
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    public <U> U doOverWriteState(Supplier<U> toDo) {
         try {
             lock.writeLock().lock();
             return toDo.get();

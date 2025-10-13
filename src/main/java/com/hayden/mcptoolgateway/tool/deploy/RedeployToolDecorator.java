@@ -120,7 +120,7 @@ public class RedeployToolDecorator implements ToolDecorator {
 
         StaticToolCallbackProvider redeployToolCallbackProvider = new StaticToolCallbackProvider(
                 FunctionToolCallback
-                        .<ToolModels.Redeploy, DeployModels.RedeployResult>builder(RedeployFunction.REDEPLOY_MCP_SERVER, (i, o) -> ts.doOverState(() -> {
+                        .<ToolModels.Redeploy, DeployModels.RedeployResult>builder(RedeployFunction.REDEPLOY_MCP_SERVER, (i, o) -> ts.doOverWriteState(() -> {
                             if (!toolGatewayConfigProperties.getDeployableMcpServers()
                                     .containsKey(i.deployService())) {
                                 log.error("MCP server name {} was not contained in options {}.",
