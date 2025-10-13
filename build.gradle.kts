@@ -20,8 +20,12 @@ dependencies {
     implementation(project(":tracing"))
     implementation(project(":test-mcp-server"))
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.security:spring-security-core")
+    implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
+
+    testImplementation("org.wiremock:wiremock-standalone:3.9.1")
 }
 
 val projDir = layout.projectDirectory

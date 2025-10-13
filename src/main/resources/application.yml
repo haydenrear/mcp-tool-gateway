@@ -30,13 +30,23 @@ graphql-props:
   url: http://localhost:8084/graphql
 
 spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: postgres
+    jdbc-url: jdbc:postgresql://localhost:5405/postgres
+    url: jdbc:postgresql://localhost:5405/postgres
+    hikari:
+      connection-timeout: 960000
+  liquibase:
+    enabled: false
   main:
     banner-mode: off
   ai:
     vectorstore.type: none
     mcp:
       server:
-        stdio: true
+        stdio: false
         enabled: true
         type: sync
         name: "mcp-tool-gateway"
@@ -46,17 +56,44 @@ spring:
 
   docker:
     compose:
-      file: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/src/main/resources/docker/docker-compose.yml
-      enabled: false
+      file: file:{{PROJ_DIR}}/src/main/resources/docker/docker-compose.yml
+      enabled: true
       skip:
-        in-tests: true
-      lifecycle-management: start_and_stop
+        in-tests: false
+      lifecycle-management: start_only
       start:
         skip: if_running
       readiness:
         wait: only_if_started
-
+  security:
+    oauth2:
+      client:
+        registration:
+          cdc-oauth2-client:
+            provider: cdc-oauth2-client
+            client-id: cdc-oauth2-client
+            client-secret: 234234lkjsldkdjfsd
+            scope: profile, email
+            authorization-grant-type: client_credentials
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-authentication-method: client_secret_post
+            # if your provider doesn't have a userinfo endpoint, omit it and map from ID token instead
+            # (but then you really want OIDC)
+        provider:
+          cdc-oauth2-client:
+            authorization-uri: http://localhost:8080/oauth2/authorize
+            token-uri:         http://localhost:8080/oauth2/token
+            user-info-uri:     http://localhost:8080/userinfo
+            user-name-attribute: sub
+            jwk-set-uri:       http://localhost:8080/oauth2/jwks
 
 keystore:
   key-path: {{PROJ_DIR}}/keys
   key-name: cdc-key
+
+
+
+logging.level.org.springframework.web.servlet: DEBUG
+logging.level.org.springframework.web.server: DEBUG
+logging.level.org.springframework.boot.web.servlet: DEBUG
+logging.level.org.springframework.boot.web.server: DEBUG

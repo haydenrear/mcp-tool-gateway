@@ -1,28 +1,81 @@
-package io.modelcontextprotocol.client.transport;
+package com.hayden.mcptoolgateway.security;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.modelcontextprotocol.spec.McpSchema;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import org.springframework.security.oauth2.client.*;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.hayden.mcptoolgateway.tool.ToolDecoratorService.AUTH_BODY_FIELD;
 
 @Component
 public class AuthResolver {
 
-    public Mono<String> clientCredentialsBearer() {
-        // Works when called inside a reactive chain (RouterFunction handlers etc.)
-        return Mono.empty();
+    @Autowired
+    ClientRegistrationRepository clientRegistrationRepository;
+    @Autowired
+    ClientCredentialsOAuth2AuthorizedClientProvider manager;
+
+    private ClientRegistration clientRegistration;
+
+    @PostConstruct
+    public void init() {
+        clientRegistration = clientRegistrationRepository.findByRegistrationId("cdc-oauth2-client");
     }
+
+    private Optional<String> clientCredentialsBearerBlocking() {
+        Collection<GrantedAuthority> authorities = clientRegistration.getScopes().stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toCollection(() -> {
+                    Collection<GrantedAuthority> s = new ArrayList<>();
+                    return s;
+                }));
+
+        var principal = new AnonymousAuthenticationToken("client-credentials", "cdc-oauth2-client", authorities);
+
+        var request = OAuth2AuthorizeRequest
+                .withClientRegistrationId("cdc-oauth2-client")
+                .principal(principal)
+                .attributes(s -> {})
+                .build();
+
+        OAuth2AuthorizationContext authorizationContext = OAuth2AuthorizationContext.withClientRegistration(clientRegistration).principal(principal)
+                .build();
+        var auth = manager.authorize(authorizationContext);
+
+        return Optional.ofNullable(auth)
+                .flatMap(o -> Optional.ofNullable(o.getAccessToken().getTokenValue()));
+    }
+
+    /** Reactive wrapper (true non-blocking from caller’s POV): */
+    public Mono<String> clientCredentialsBearer() {
+        return reactor.core.publisher.Mono
+                .fromCallable(this::clientCredentialsBearerBlocking)
+                .flatMap(Mono::justOrEmpty)
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+    }
+
 
     public static String resolveUserOrDefault() {
         // Works when called inside a reactive chain (RouterFunction handlers etc.)

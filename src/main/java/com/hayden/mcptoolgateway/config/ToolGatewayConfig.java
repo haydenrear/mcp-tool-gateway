@@ -2,11 +2,13 @@ package com.hayden.mcptoolgateway.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.mcptoolgateway.security.AuthResolver;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import io.modelcontextprotocol.client.transport.*;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
+import io.modelcontextprotocol.server.transport.WebMvcSseServerTransportProvider;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
@@ -14,6 +16,7 @@ import org.springframework.ai.mcp.client.autoconfigure.configurer.McpSyncClientC
 import org.springframework.ai.mcp.client.autoconfigure.properties.McpSseClientProperties;
 import org.springframework.ai.mcp.client.autoconfigure.properties.McpStdioClientProperties;
 import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.ai.mcp.server.autoconfigure.McpServerProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -113,8 +116,7 @@ public class ToolGatewayConfig {
                 .stream()
                 .map(e -> new NamedClientMcpTransport(
                         e.getKey(),
-                        AuthAwareHttpSseClientTransport
-                                .authAwareBuilder(e.getValue().url())
+                        AuthAwareHttpSseClientTransport.authAwareBuilder(e.getValue().url())
                                 .objectMapper(objectMapper)
                                 .authResolver(authResolver)
                                 .sseEndpoint(e.getKey())
@@ -149,5 +151,24 @@ public class ToolGatewayConfig {
         return args -> {};
     }
 
+    @Bean
+    @ConditionalOnProperty(name = "spring.ai.mcp.server.stdio", havingValue = "true")
+    public StdioServerTransportProvider stdioProvider(ObjectMapper objectMapper) {
+        return new StdioServerTransportProvider(objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "spring.ai.mcp.server.stdio", havingValue = "false")
+    public WebMvcSseServerTransportProvider httpProvider(
+            ObjectMapper om, McpServerProperties serverProperties) {
+        return new WebMvcSseServerTransportProvider(om, serverProperties.getBaseUrl(),
+                serverProperties.getSseMessageEndpoint(), serverProperties.getSseEndpoint());
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "spring.ai.mcp.server.stdio", havingValue = "false")
+    public RouterFunction<ServerResponse> mvcMcpRouterFunction(WebMvcSseServerTransportProvider transportProvider) {
+        return transportProvider.getRouterFunction();
+    }
 
 }

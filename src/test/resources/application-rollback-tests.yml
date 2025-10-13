@@ -1,3 +1,4 @@
+
 gateway:
   deployable-mcp-servers:
     test-rollback-server:
@@ -13,3 +14,5 @@ gateway:
 spring:
   main:
     allow-bean-definition-overriding: true
+  lifecycle:
+    timeout-per-shutdown-phase: 1s

@@ -2,6 +2,7 @@ package com.hayden.mcptoolgateway;
 
 import com.hayden.mcptoolgateway.config.KillCdcInitializer;
 import org.springframework.ai.mcp.client.autoconfigure.McpClientAutoConfiguration;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
@@ -16,15 +17,15 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
  *
  * Acts as a decorator for a tool, adding the redeploy tool.
  */
-@SpringBootApplication(exclude = { DataSourceAutoConfiguration.class, JdbcTemplateAutoConfiguration.class, McpClientAutoConfiguration.class })
+@SpringBootApplication(exclude = { McpClientAutoConfiguration.class })
 public class McpToolGatewayApplication {
 
     public static void main(String[] args) {
-        SpringApplicationBuilder springApplicationBuilder = new SpringApplicationBuilder(McpToolGatewayApplication.class);
-        springApplicationBuilder
-                .web(WebApplicationType.NONE)
-                .initializers(new KillCdcInitializer())
-                .run(args);
+        SpringApplication.run(McpToolGatewayApplication.class, args);
+//        SpringApplicationBuilder springApplicationBuilder = new SpringApplicationBuilder(McpToolGatewayApplication.class);
+//        springApplicationBuilder
+//                .initializers(new KillCdcInitializer())
+//                .run(args);
     }
 
 }

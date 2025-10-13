@@ -8,13 +8,13 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.oauth2.client.ClientCredentialsOAuth2AuthorizedClientProvider;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
@@ -31,14 +31,22 @@ import java.util.UUID;
 public class ResourceServerConfig {
 
     @Bean
-    @ConditionalOnBean(HttpSecurity.class)
-    SecurityFilterChain securityFilterChain(HttpSecurity http, KubernetesFilter kubernetesFilter) throws Exception {
-        return http.oauth2ResourceServer(res -> res.jwt(Customizer.withDefaults()))
+    SecurityFilterChain resourceServerSecurityConf(HttpSecurity http, KubernetesFilter kubernetesFilter) throws Exception {
+        var b= http
+                .oauth2ResourceServer(res -> res.jwt(Customizer.withDefaults()))
                 .addFilterAfter(kubernetesFilter, BearerTokenAuthenticationFilter.class)
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests.anyRequest().authenticated())
                 .csrf(CsrfConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .build();
+
+        return b;
+    }
+
+    @Bean
+    ClientCredentialsOAuth2AuthorizedClientProvider clientCredentialsOAuth2AuthorizedClientProvider() {
+        var c = new ClientCredentialsOAuth2AuthorizedClientProvider();
+        return c;
     }
 
     @Bean

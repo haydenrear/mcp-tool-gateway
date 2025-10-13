@@ -1,4 +1,4 @@
-#services:
+services:
 #  function-calling:
 #    image: localhost:5001/function-calling
 #    container_name: function-calling
@@ -21,7 +21,21 @@
 #      - function-calling:/var/lib/postgresql/embedding
 #    ports:
 #      - "5401:5432"
-#volumes:
+  mcp-gateway-postgres:
+    image: localhost:5001/postgres-pgvector
+    container_name: mcp-gateway-postgres
+    networks:
+      mcp-gateway-network:
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - mcp-gateway:/var/lib/postgresql/embedding
+    ports:
+      - "5405:5432"
+volumes:
 #  function-calling:
-#networks:
+  mcp-gateway:
+networks:
 #  function-calling-network:
+  mcp-gateway-network:

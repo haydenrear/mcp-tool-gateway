@@ -1,6 +1,5 @@
 package com.hayden.mcptoolgateway.kubernetes;
 
-import io.micrometer.common.util.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -12,7 +11,7 @@ public class K3sService {
         }
 
         public K3sDeployResult(String err) {
-            this(err, StringUtils.isNotBlank(err), null);
+            this(err, false, null);
         }
     }
 

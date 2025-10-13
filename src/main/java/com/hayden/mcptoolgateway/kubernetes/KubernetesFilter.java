@@ -2,7 +2,7 @@ package com.hayden.mcptoolgateway.kubernetes;
 
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
-import io.modelcontextprotocol.client.transport.AuthResolver;
+import com.hayden.mcptoolgateway.security.AuthResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,19 +28,31 @@ public class KubernetesFilter extends OncePerRequestFilter {
                                     @NotNull HttpServletResponse response,
                                     @NotNull FilterChain filterChain) throws ServletException, IOException {
 
-        var d = deployment.doDeployGetValidDeployment();
+        var user = Optional.ofNullable(AuthResolver.resolveUser());
 
-        if (!d.success()) {
-            response.getWriter()
-                    .write("Failed to deploy or get deployment - %s.".formatted(Optional.ofNullable(d.err()).orElse("unknown error.")));
+        if (user.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "unauthorized - no authentication found.");
             return;
         }
 
-        var a = toolDecoratorService.createAddClient(new ToolDecoratorService.AddClient("cdc", AuthResolver.resolveUser(), ""));
+        var d = deployment.doDeployGetValidDeployment();
 
-        if (!a.success()) {
-            response.getWriter()
-                    .write("Failed to resolve MCP client - %s.".formatted(Optional.ofNullable(a.underlying()).map(ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult::err).orElse("unknown error.")));
+        if (!d.success()) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Failed to deploy or get deployment - %s.".formatted(Optional.ofNullable(d.err()).orElse("unknown error.")));
+            return;
+        }
+
+
+        var a = user.map(userResolved -> toolDecoratorService
+                .createAddClient(new ToolDecoratorService.AddClient("cdc", userResolved, d.host())));
+
+        if (a.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Failed to resolve MCP client - unkown error.");
+            return;
+        }
+
+        if (!a.get().success()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Failed to resolve MCP client - %s.".formatted(Optional.ofNullable(a.get().underlying()).map(ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult::err).orElse("unknown error.")));
             return;
         }
 

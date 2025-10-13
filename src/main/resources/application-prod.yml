@@ -45,7 +45,7 @@ spring:
     vectorstore.type: none
     mcp:
       server:
-        stdio: true
+        stdio: false
         enabled: true
   docker:
     compose:
