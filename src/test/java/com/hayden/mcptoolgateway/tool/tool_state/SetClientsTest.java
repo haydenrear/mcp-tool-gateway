@@ -79,7 +79,7 @@ class SetClientsTest {
                 .thenReturn(Result.err(new DynamicMcpToolCallbackProvider.McpError("Connection failed")));
 
         // When
-        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClient(clientName, mockToolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(result.wasSuccessful()).isFalse();
@@ -106,7 +106,7 @@ class SetClientsTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
 
         // When
-        setClients.setParseMcpClient(clientName, mockToolState);
+        setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(setClients.hasClient(new McpServerToolStates.DeployedService(clientName, ToolDecoratorService.SYSTEM_ID).clientId())).isTrue();
@@ -120,7 +120,7 @@ class SetClientsTest {
                 .thenReturn(Result.err(new DynamicMcpToolCallbackProvider.McpError("Connection failed")));
 
         // When
-        setClients.setParseMcpClient(clientName, mockToolState);
+        setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(setClients.noMcpClient(clientName)).isTrue();
@@ -146,7 +146,7 @@ class SetClientsTest {
         when(mockClient.isInitialized()).thenReturn(true);
 
         // When
-        setClients.setParseMcpClient(clientName, mockToolState);
+        setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(setClients.clientInitialized(clientName)).isTrue();
@@ -161,7 +161,7 @@ class SetClientsTest {
                 .thenReturn(Result.err(new DynamicMcpToolCallbackProvider.McpError(errorMessage)));
 
         // When
-        setClients.setParseMcpClient(clientName, mockToolState);
+        setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
         String error = setClients.getError(clientName);
 
         // Then
@@ -179,14 +179,14 @@ class SetClientsTest {
         when(mockClient.isInitialized()).thenReturn(false);
 
         // When
-        setClients.setParseMcpClient(clientName, mockToolState);
+        setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(setClients.isMcpServerAvailable(clientName)).isFalse();
     }
 
     @Test
-    void shouldSuccessfullySetMcpClientWithTools() throws Exception {
+    void shouldSuccessfullySetMcpClientWithTools() {
         // Given
         String clientName = "test-rollback-server";
         McpSchema.Tool testTool = new McpSchema.Tool("test-tool", "A test tool", JsonSchemaGenerator.generateForType(String.class));
@@ -198,7 +198,7 @@ class SetClientsTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(tools, null));
 
         // When
-        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClient(clientName, mockToolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(result.wasSuccessful()).isTrue();
@@ -209,7 +209,7 @@ class SetClientsTest {
     }
 
     @Test
-    void shouldHandleToolCreationException() throws Exception {
+    void shouldHandleToolCreationException() {
         // Given
         String clientName = "test-rollback-server";
         McpSchema.Tool testTool = new McpSchema.Tool("test-tool", "A test tool", JsonSchemaGenerator.generateForType(String.class));
@@ -221,7 +221,7 @@ class SetClientsTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(tools, null));
 
         // When
-        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClient(clientName, mockToolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then - Even with JSON processing issues, the operation should handle gracefully
         assertThat(result.wasSuccessful()).isTrue();
@@ -255,7 +255,7 @@ class SetClientsTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(newTools, null));
 
         // When
-        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClient(clientName, mockToolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(result.wasSuccessful()).isTrue();
@@ -316,7 +316,7 @@ class SetClientsTest {
         when(mockClient.listTools()).thenThrow(new RuntimeException("List tools failed"));
 
         // When
-        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClient(clientName, mockToolState);
+        ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult result = setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(result.wasSuccessful()).isFalse();
@@ -346,7 +346,7 @@ class SetClientsTest {
         when(mockClient.isInitialized()).thenReturn(true);
 
         // When
-        setClients.setParseMcpClient(clientName, mockToolState);
+        setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // Then
         assertThat(setClients.isMcpServerAvailable(clientName)).isTrue();
@@ -362,7 +362,7 @@ class SetClientsTest {
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(Collections.emptyList(), null));
         when(mockClient.isInitialized()).thenThrow(new RuntimeException("Connection error"));
 
-        setClients.setParseMcpClient(clientName, mockToolState);
+        setClients.setParseMcpClientUpdateToolState(clientName, mockToolState);
 
         // When & Then
         assertThat(setClients.isMcpServerAvailable(clientName)).isFalse();

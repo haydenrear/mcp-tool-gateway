@@ -1,6 +1,7 @@
 package com.hayden.mcptoolgateway.tool.deploy;
 
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
+import com.hayden.mcptoolgateway.tool.ToolDecorator;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RollbackFunction;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
@@ -27,8 +28,17 @@ public class Redeploy {
     }
 
     public ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper doRedeploy(ToolDecoratorInterpreter.ToolDecoratorEffect.DoRedeploy doRedeploy) {
-        var f = Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult>
-                liftF(doRedeploy);
+        Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> f
+                = Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper>
+                        liftF(doRedeploy)
+                .flatMap(rWrapper -> {
+                    return Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult>
+                                    liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.UpdateMcpServerWithToolChanges(rWrapper.toolStateChanges()))
+                            .flatMap(ts -> Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
+                                    new ToolDecorator.ToolDecoratorToolStateUpdate(rWrapper.redeploy().deployService(), rWrapper.newToolState(), rWrapper.toolStateChanges()))))
+                            .flatMap(s -> Free.pure(rWrapper));
+                })
+                .flatMap(Free::pure);
 
         var parsed = Free.parse(f, toolDecoratorInterpreter);
 

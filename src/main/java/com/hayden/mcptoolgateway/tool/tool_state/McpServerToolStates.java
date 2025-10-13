@@ -102,15 +102,15 @@ public class McpServerToolStates {
     }
 
     @StripedLock
-    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClient(
+    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClientUpdateToolState(
             String deployService,
             ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return setClients.setMcpClient(deployService, mcpServerToolState);
+        return setClients.setMcpClientUpdateToolState(deployService, mcpServerToolState);
     }
 
     @StripedLock
     public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult setParseMcpClient(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return setClients.setParseMcpClient(deployService, mcpServerToolState);
+        return setClients.setParseMcpClientUpdateToolState(deployService, mcpServerToolState);
     }
 
     public static @NotNull DeployedService getAuthDeployedService(String deployService) {
@@ -141,7 +141,7 @@ public class McpServerToolStates {
         return setClients.createSetClientErr(service, m, mcpServerToolState);
     }
 
-    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> setMcpClientUpdateTools(
+    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClientUpdateTools(
             McpSyncClient m,
             McpServerToolStates.DeployedService deployService,
             ToolDecoratorService.McpServerToolState mcpServerToolState) {
@@ -156,8 +156,24 @@ public class McpServerToolStates {
         this.mcpServerToolStates.putAll(states);
     }
 
+    public void addAllUpdates(Map<String, ToolDecoratorService.McpServerToolState> states) {
+        this.mcpServerToolStates.putAll(states);
+    }
+
     public void addUpdateToolState(ToolDecorator.ToolDecoratorToolStateUpdate toolDecoratorToolStateUpdate) {
         this.addUpdateToolState(toolDecoratorToolStateUpdate.name(), toolDecoratorToolStateUpdate.toolStates());
+    }
+
+    public void executeToolStateChanges(List<ToolDecorator.McpServerToolStateChange> mcpServerToolStateChanges) {
+        mcpServerToolStateChanges
+                .forEach(m -> {
+                    switch(m) {
+                        case ToolDecorator.McpServerToolStateChange.AddTool addTool ->
+                                this.syncServerDelegate.addTool(addTool.toAddTools());
+                        case ToolDecorator.McpServerToolStateChange.RemoveTool removeTool ->
+                                this.syncServerDelegate.removeTool(removeTool.toRemove());
+                    }
+                });
     }
 
     public boolean isInitialized() {
@@ -274,12 +290,15 @@ public class McpServerToolStates {
 
             return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
                     .toolsAdded(toolsAdded)
+                    .toolState(createNewToolDecorator.toolState())
+                    .toAddTools(toAddTools)
                     .toolsRemoved(toolsRemoved)
                     .tools(tools)
                     .providers(providersCreated)
+                    .toRemoveTools(toolsRemoved)
                     .build();
         } catch (Exception e) {
-            return parseToolExceptionFail(e, mcpClient, deployService);
+            return parseToolExceptionFail(e, mcpClient, deployService, createNewToolDecorator.toolState());
         }
     }
 
@@ -344,9 +363,10 @@ public class McpServerToolStates {
                     .providers(providersCreated)
                     .toRemoveTools(toRemoveTools)
                     .toAddTools(toAddTools)
+                    .toolState(updatingExistingToolDecorator.removedState())
                     .build();
         } catch (Exception e) {
-            return parseToolExceptionFail(e, m, existing, deployService);
+            return parseToolExceptionFail(e, m, existing, deployService, updatingExistingToolDecorator.removedState());
         }
     }
 
@@ -447,23 +467,28 @@ public class McpServerToolStates {
     }
 
     private static ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult parseToolExceptionFail(Exception e,
-                                                                                                           SetClients.DelegateMcpClient mcpClient, McpServerToolStates.DeployedService deployService) {
+                                                                                                           SetClients.DelegateMcpClient mcpClient,
+                                                                                                           DeployedService deployService,
+                                                                                                           ToolDecoratorService.McpServerToolState toolState) {
         log.error("Error when attempting to retrieve tools: {}", e.getMessage(), e);
         mcpClient.setError(e.getMessage());
         return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
                 .err(e.getMessage())
+                .toolState(toolState)
                 .build();
     }
 
     private static ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult parseToolExceptionFail(Exception e,
                                                                                                            SetClients.DelegateMcpClient mcpClient,
                                                                                                            Map<String, ToolDecoratorService.ToolCallbackDescriptor> existing,
-                                                                                                           McpServerToolStates.DeployedService deployService) {
+                                                                                                           McpServerToolStates.DeployedService deployService,
+                                                                                                           ToolDecoratorService.McpServerToolState toolState) {
         log.error("Error when attempting to retrieve tools: {}", e.getMessage(), e);
         mcpClient.setError(e.getMessage());
         return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
                 .toolsRemoved(existing.keySet())
                 .err(e.getMessage())
+                .toolState(toolState)
                 .build();
     }
 

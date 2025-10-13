@@ -10,6 +10,7 @@ import com.hayden.mcptoolgateway.tool.deploy.DeployService;
 import com.hayden.mcptoolgateway.tool.deploy.Redeploy;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RollbackFunction;
+import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.free.Effect;
 import com.hayden.utilitymodule.free.Free;
@@ -30,10 +31,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.locks.Lock;
 
 @Component
@@ -59,9 +57,12 @@ public class ToolDecoratorInterpreter
                 ToolDecoratorService.McpServerToolState removedState,
                 McpServerToolStates.DeployedService deployService) implements ToolDecoratorEffect {}
 
+        record PerformToolDecorators(AddManyMcpServerToolState manyMcpServerToolState) implements ToolDecoratorEffect {}
+
         record CreateNewToolDecorator(
                 SetClients.DelegateMcpClient mcpClient,
-                McpServerToolStates.DeployedService deployService) implements ToolDecoratorEffect {}
+                McpServerToolStates.DeployedService deployService,
+                ToolDecoratorService.McpServerToolState toolState) implements ToolDecoratorEffect {}
 
         record SetErrorMcp(
                 McpServerToolStates.DeployedService service, DynamicMcpToolCallbackProvider.McpError err,
@@ -75,6 +76,12 @@ public class ToolDecoratorInterpreter
 
         record AddMcpServerToolState(
                 ToolDecorator.ToolDecoratorToolStateUpdate stateUpdate) implements ToolDecoratorEffect {}
+
+        record AddManyMcpServerToolState(
+                Map<String, AddMcpServerToolState> stateUpdate) implements ToolDecoratorEffect {}
+
+        record UpdateMcpServerWithToolChanges(
+                List<ToolDecorator.McpServerToolStateChange> toolStateChanges) implements ToolDecoratorEffect {}
 
         record DoRedeploy(ToolModels.Redeploy redeploy,
                           ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer,
@@ -141,6 +148,8 @@ public class ToolDecoratorInterpreter
 
         record UpdatedToolState(
                 ToolDecorator.ToolDecoratorToolStateUpdate stateUpdate) implements ToolDecoratorResult {}
+        record UpdatedToolMcp(
+                List<ToolDecorator.McpServerToolStateChange> changes) implements ToolDecoratorResult {}
 
         @Builder(toBuilder = true)
         record RedeployResultWrapper(
@@ -186,7 +195,8 @@ public class ToolDecoratorInterpreter
                 String err,
                 List<ToolCallbackProvider> providers,
                 List<McpServerFeatures.SyncToolSpecification> toAddTools,
-                Set<String> toRemoveTools) implements ToolDecoratorResult {
+                Set<String> toRemoveTools,
+                ToolDecoratorService.McpServerToolState toolState) implements ToolDecoratorResult {
 
             public boolean wasSuccessful() {
                 return StringUtils.isBlank(err);
@@ -206,8 +216,7 @@ public class ToolDecoratorInterpreter
 
     private final DeployService deployService;
 
-    @Autowired @Lazy
-    private McpServerToolStates ts;
+    private final McpServerToolStates ts;
 
     private final DynamicMcpToolCallbackProvider dynamicMcpToolCallbackProvider;
 
@@ -217,19 +226,64 @@ public class ToolDecoratorInterpreter
 
     private final RedeployFunction redeployFunction;
 
+    @Autowired
+    List<ToolDecorator> toolDecorators;
 
 
     @Override
     public Free<ToolDecoratorEffect, ToolDecoratorResult> apply(ToolDecoratorEffect toolDecoratorEffect) {
         return switch(toolDecoratorEffect) {
+            case ToolDecoratorEffect.PerformToolDecorators dec -> {
+                throw new RuntimeException(".");
+            }
+            case ToolDecoratorEffect.AddManyMcpServerToolState addMcpServerToolState -> {
+//                TODO: tool decorators should be effectful also
+                var toDecorate = MapFunctions.CollectMap(
+                        addMcpServerToolState.stateUpdate
+                                .entrySet()
+                                .stream()
+                                .map(e -> Map.entry(e.getKey(), e.getValue().stateUpdate.toolStates())));
+                this.toolDecorators.stream()
+                        .filter(ToolDecorator::isEnabled)
+                        .map(td -> {
+                            return td.decorate(toDecorate);
+                        })
+                        .forEach(tdu -> {
+                            addMcpServerToolState.stateUpdate.put(tdu.name(),
+                                    new ToolDecoratorEffect.AddMcpServerToolState(tdu));
+                        });
+                var toolStateUpdates = MapFunctions.CollectMap(
+                        addMcpServerToolState.stateUpdate
+                                .entrySet()
+                                .stream()
+                                .map(e -> Map.entry(e.getKey(), e.getValue().stateUpdate.toolStates())));
+
+                this.toolStates.addAllUpdates(toolStateUpdates);
+
+                var toUpdateDelegateServer = addMcpServerToolState.stateUpdate
+                        .values()
+                        .stream()
+                        .flatMap(a -> a.stateUpdate.toolStateChanges().stream())
+                        .toList();
+
+                yield Free.liftF(new ToolDecoratorEffect.UpdateMcpServerWithToolChanges(toUpdateDelegateServer));
+
+            }
             case ToolDecoratorEffect.AddMcpServerToolState addMcpServerToolState -> {
-                    this.toolStates.addUpdateToolState(addMcpServerToolState.stateUpdate);
-                    yield Free.pure(new ToolDecoratorResult.UpdatedToolState(addMcpServerToolState.stateUpdate));
+                this.toolStates.addUpdateToolState(addMcpServerToolState.stateUpdate);
+                yield Free.<ToolDecoratorEffect, ToolDecoratorResult>
+                                liftF(new ToolDecoratorEffect.UpdateMcpServerWithToolChanges(addMcpServerToolState.stateUpdate().toolStateChanges()))
+                        .flatMap(s -> Free.pure(new ToolDecoratorResult.UpdatedToolState(addMcpServerToolState.stateUpdate)));
+            }
+            case ToolDecoratorEffect.UpdateMcpServerWithToolChanges toolChanges -> {
+                toolStates.executeToolStateChanges(toolChanges.toolStateChanges);
+                yield Free.pure(new ToolDecoratorResult.UpdatedToolMcp(toolChanges.toolStateChanges));
             }
             case ToolDecoratorEffect.SetErrorMcp setErrorMcp ->
                     Free.pure(ts.createSetClientErr(setErrorMcp.service, setErrorMcp.err, setErrorMcp.toolState));
             case ToolDecoratorEffect.SetMcpClientUpdateTools setMcpClient ->
-                    toolStates.setMcpClientUpdateTools(setMcpClient.client, setMcpClient.service, setMcpClient.toolState);
+                    toolStates.setMcpClientUpdateTools(setMcpClient.client, setMcpClient.service, setMcpClient.toolState)
+                            .flatMap(Free::pure);
             case ToolDecoratorEffect.BuildClient buildClient -> {
                 Result<McpSyncClient, DynamicMcpToolCallbackProvider.McpError> client;
                 if (buildClient.namedClientMcpTransport != null) {
@@ -238,8 +292,7 @@ public class ToolDecoratorInterpreter
                     client = dynamicMcpToolCallbackProvider.buildClient(buildClient.deployService().clientId());
                 }
                 if (client.isOk())
-                    yield Free.liftF(new ToolDecoratorEffect.SetMcpClientUpdateTools(client.unwrap(), buildClient.deployService, buildClient.toolState,
-                            buildClient.namedClientMcpTransport));
+                    yield Free.liftF(new ToolDecoratorEffect.SetMcpClientUpdateTools(client.unwrap(), buildClient.deployService, buildClient.toolState, buildClient.namedClientMcpTransport));
                 else
                     yield Free.liftF(new ToolDecoratorEffect.SetErrorMcp(buildClient.deployService, client.unwrapError(), buildClient.toolState));
             }
@@ -278,7 +331,8 @@ public class ToolDecoratorInterpreter
                 });
             }
             case ToolDecoratorEffect.AfterDeployHandleMcp deployDescription ->
-                    deployService.apply(deployDescription);
+                    deployService.apply(deployDescription)
+                            .flatMap(Free::pure);
             case ToolDecoratorEffect.DoRedeploy doRedeploy ->
                     Free.liftF(new ToolDecoratorEffect.KillClientAndRedeploy(doRedeploy.redeploy, doRedeploy.redeployMcpServer, doRedeploy.toolState));
             case ToolDecoratorEffect.PerformRedeploy performRedeploy ->

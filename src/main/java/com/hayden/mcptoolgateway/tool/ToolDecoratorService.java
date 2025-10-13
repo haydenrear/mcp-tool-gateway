@@ -100,17 +100,24 @@ public class ToolDecoratorService {
     }
 
     private void buildTools() {
-        Map<String, McpServerToolState> decoratedTools = toolGatewayConfigProperties
+        Map<String, ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState> decoratedTools = toolGatewayConfigProperties
                 .getDeployableMcpServers()
                 .entrySet()
                 .stream()
                 .flatMap(d -> {
                     try {
-                        var m = toolStates.setMcpClient(new McpServerToolStates.DeployedService(d.getKey(), SYSTEM_ID), McpServerToolState.builder().build());
+                        var m = toolStates.setMcpClient(
+                                new McpServerToolStates.DeployedService(d.getKey(), SYSTEM_ID),
+                                McpServerToolState.builder()
+                                        .deployableMcpServer(d.getValue())
+                                        .build());
                         var toolDecoratorResult = Free.parse(m, toolDecoratorInterpreter);
                         if (toolDecoratorResult instanceof ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult s) {
                             return Stream.of(
-                                    Map.entry(d.getKey(), McpServerToolState.builder().deployableMcpServer(d.getValue()).toolCallbackProviders(s.providers()).build()));
+                                    Map.entry(
+                                            d.getKey(),
+                                            new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
+                                                    new ToolDecorator.ToolDecoratorToolStateUpdate(d.getKey(), s.toolState(), s.getToolStateChanges()))));
                         } else {
                             log.error("Found unknown tool decorator result {}", toolDecoratorResult);
                         }
@@ -127,14 +134,14 @@ public class ToolDecoratorService {
                 })
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        this.toolStates.addUpdateToolState(decoratedTools);
 
-        this.toolDecorators.stream()
-                .filter(ToolDecorator::isEnabled)
-                .map(td -> td.decorate(decoratedTools))
-                .forEach(this.toolStates::addUpdateToolState);
+        var res = Free.parse(Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.AddManyMcpServerToolState(decoratedTools)), toolDecoratorInterpreter);
+
+        if (res instanceof ToolDecoratorInterpreter.ToolDecoratorResult.UpdatedToolState tc) {
+            log.info("Found updated tool decorator result {}", tc);
+        } else {
+            log.error("Found unknown tool decorator result {}", res);
+        }
    }
-
-   public void interpretToolStateChanges(ToolDecorator.ToolDecoratorToolStateUpdate updates) {}
 
 }

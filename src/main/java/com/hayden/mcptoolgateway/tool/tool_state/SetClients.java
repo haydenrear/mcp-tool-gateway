@@ -1,6 +1,7 @@
 package com.hayden.mcptoolgateway.tool.tool_state;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.mcptoolgateway.tool.ToolDecorator;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.utilitymodule.concurrent.striped.StripedLock;
 import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
@@ -99,9 +100,13 @@ class SetClients {
     }
 
     @StripedLock
-    public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult setParseMcpClient(String deployService,
-                                                                                              ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        var parsed = Free.parse(setMcpClient(deployService, mcpServerToolState).flatMap(Free::pure), toolDecoratorInterpreter);
+    public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult setParseMcpClientUpdateToolState(String deployService,
+                                                                                                             ToolDecoratorService.McpServerToolState mcpServerToolState) {
+        var parsed = Free.parse(
+                setMcpClientUpdateToolState(deployService, mcpServerToolState)
+                        .flatMap(Free::pure),
+                toolDecoratorInterpreter);
+
         if (parsed instanceof ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult r) {
             return r;
         }
@@ -110,10 +115,17 @@ class SetClients {
     }
 
     @StripedLock
-    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClient(String deployService,
-                                                                                                                                             ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClientUpdateToolState(
+            String deployService,
+            ToolDecoratorService.McpServerToolState mcpServerToolState) {
         var d = new McpServerToolStates.DeployedService(deployService, AuthResolver.resolveUserOrDefault());
-        return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.BuildClient(d, mcpServerToolState, null));
+        return Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult>
+                        liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.BuildClient(d, mcpServerToolState, null))
+                .flatMap(sc -> Free
+                        .<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult>liftF(
+                                new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
+                                        new ToolDecorator.ToolDecoratorToolStateUpdate(deployService, mcpServerToolState, sc.getToolStateChanges())))
+                        .flatMap(s -> Free.pure(sc)));
     }
 
     @StripedLock
@@ -194,6 +206,7 @@ class SetClients {
 
             return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
                     .toolsRemoved(removed)
+                    .toolState(mcpServerToolState)
                     .tools(tools)
                     .err(m.getMessage())
                     .build();
@@ -201,12 +214,13 @@ class SetClients {
 
         return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
                 .tools(tools)
+                .toolState(mcpServerToolState)
                 .err(m.getMessage())
                 .build();
     }
 
 
-    @NotNull Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> setMcpClientUpdateTools(
+    @NotNull Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClientUpdateTools(
             McpSyncClient m,
             McpServerToolStates.DeployedService deployService,
             ToolDecoratorService.McpServerToolState mcpServerToolState,
@@ -215,7 +229,7 @@ class SetClients {
         if (containsToolCallbackProviders(mcpServerToolState)) {
             return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.UpdatingExistingToolDecorator(mcpClient, mcpServerToolState, deployService));
         } else {
-            return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.CreateNewToolDecorator(mcpClient, deployService));
+            return Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.CreateNewToolDecorator(mcpClient, deployService, mcpServerToolState));
         }
     }
 

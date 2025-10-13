@@ -1,6 +1,5 @@
 package com.hayden.mcptoolgateway.tool.deploy;
 
-import com.google.common.collect.Lists;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter.*;
@@ -36,7 +35,7 @@ public class DeployService {
     ToolGatewayConfigProperties toolGatewayConfigProperties;
 
 
-    public Free<ToolDecoratorEffect, ToolDecoratorResult> apply(AfterDeployHandleMcp deployDescription) {
+    public Free<ToolDecoratorEffect, ToolDecoratorResult.RedeployResultWrapper> apply(AfterDeployHandleMcp deployDescription) {
         return switch (deployDescription) {
             case AfterDeployHandleMcp.AfterFailedDeployTryRollback afterFailedDeployTryRollback ->
                     handleDeploy(afterFailedDeployTryRollback)
@@ -112,7 +111,7 @@ public class DeployService {
                                                                                                                              ToolDecoratorService.McpServerToolState toolState,
                                                                                                                              DeployModels.DeployState deployState) {
 
-        return ts.setMcpClient(redeploy.deployService(), toolState)
+        return ts.setMcpClientUpdateToolState(redeploy.deployService(), toolState)
                 .flatMap(toSet -> {
                     if (toSet.wasSuccessful() && ts.clientInitialized(redeploy.deployService())) {
                         return Free.pure(
