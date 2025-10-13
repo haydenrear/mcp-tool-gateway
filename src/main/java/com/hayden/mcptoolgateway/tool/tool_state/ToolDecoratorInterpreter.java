@@ -243,15 +243,13 @@ public class ToolDecoratorInterpreter
                                 .entrySet()
                                 .stream()
                                 .map(e -> Map.entry(e.getKey(), e.getValue().stateUpdate.toolStates())));
+
                 this.toolDecorators.stream()
                         .filter(ToolDecorator::isEnabled)
-                        .map(td -> {
-                            return td.decorate(toDecorate);
-                        })
-                        .forEach(tdu -> {
-                            addMcpServerToolState.stateUpdate.put(tdu.name(),
-                                    new ToolDecoratorEffect.AddMcpServerToolState(tdu));
-                        });
+                        .map(td -> td.decorate(toDecorate))
+                        .forEach(tdu -> addMcpServerToolState.stateUpdate.put(tdu.name(),
+                                new ToolDecoratorEffect.AddMcpServerToolState(tdu)));
+
                 var toolStateUpdates = MapFunctions.CollectMap(
                         addMcpServerToolState.stateUpdate
                                 .entrySet()
