@@ -65,6 +65,8 @@ public class K3sService {
     
     @Autowired
     private UserMetadataRepository userMetadataRepository;
+    @Autowired
+    private AuthResolver authResolver;
 
     private KubernetesClient client() {
         KubernetesClient c = this.client;
@@ -102,7 +104,7 @@ public class K3sService {
      * and return a reachable host (prefer ingress, otherwise service DNS).
      */
     public K3sDeployResult doDeployGetValidDeployment() {
-        String user = Optional.ofNullable(AuthResolver.resolveUserOrDefault()).orElse("default");
+    String user = authResolver.resolveUserOrDefault();
 
         try {
             // First, check persisted assignment
@@ -171,6 +173,7 @@ public class K3sService {
             var meta = userMetadataRepository.findByUserId(user)
                     .orElseGet(() -> UserMetadata.builder()
                             .userId(user)
+                            .id(user)
                             .build());
             meta.setUnitName(chosenName);
             meta.setNamespace(namespace());

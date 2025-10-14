@@ -6,6 +6,7 @@ plugins {
     id("com.hayden.log")
     id("com.hayden.docker-compose")
     id("com.hayden.paths")
+    id("com.hayden.jpa-persistence")
 }
 
 group = "com.hayden"
@@ -20,6 +21,7 @@ dependencies {
     implementation(project(":tracing"))
     implementation(project(":test-mcp-server"))
     implementation(project(":jpa-persistence"))
+    implementation(project(":persistence"))
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")

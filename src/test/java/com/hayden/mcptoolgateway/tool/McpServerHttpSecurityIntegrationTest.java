@@ -2,6 +2,9 @@ package com.hayden.mcptoolgateway.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.hayden.mcptoolgateway.kubernetes.UserMetadata;
+import com.hayden.mcptoolgateway.kubernetes.UserMetadataRepository;
+import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import lombok.extern.slf4j.Slf4j;
@@ -18,16 +21,15 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.Charset;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -59,6 +61,12 @@ class McpServerHttpSecurityIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private UserMetadataRepository userMetadataRepository;
+
+    @Autowired
+    private McpServerToolStates toolStates;
+
     private static final WireMockServer wireMockServer = new WireMockServer(9999);
 
     @BeforeAll
@@ -80,6 +88,22 @@ class McpServerHttpSecurityIntegrationTest {
             accessToken = obtainAccessToken();
             stubToken(accessToken);
         }
+        toolStates.addUpdateToolState("cdctest-user", ToolDecoratorService.McpServerToolState.builder().build());
+        userMetadataRepository.findByUserId("test-user")
+                .ifPresentOrElse(
+                        um -> {},
+                        () -> {
+                            var meta = userMetadataRepository.findByUserId("test-user")
+                                    .orElseGet(() -> UserMetadata.builder()
+                                            .userId("test-user")
+                                            .id("test-user")
+                                            .build());
+                            meta.setUnitName("test");
+                            meta.setNamespace("ns");
+                            meta.setResolvedHost("http://localhost:%s".formatted(port));
+                            meta.setLastValidatedAt(OffsetDateTime.now());
+                            userMetadataRepository.save(meta);
+                        });
     }
 
     @AfterEach
@@ -114,8 +138,8 @@ class McpServerHttpSecurityIntegrationTest {
                         // IMPORTANT: close the stream so the server sees EOF
                         HttpResponse<InputStream> resp = response;
                         try (var is = new BufferedInputStream(resp.body())) {
-                            String msg = new String(is.readAllBytes(), Charset.defaultCharset());
-                            log.info(msg);
+//                            String msg = new String(is.readAllBytes(), Charset.defaultCharset());
+//                            log.info(msg);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -124,11 +148,12 @@ class McpServerHttpSecurityIntegrationTest {
                         } else {
                             throw new RuntimeException("Failed to connect to SSE endpoint: " + response.statusCode());
                         }
+
                     });
 
-            await().atMost(Duration.ofSeconds(3)).until(sseRequest::isDone);
+            await().atMost(Duration.ofSeconds(3)).until(() -> responseCode.get() == 200);
             assertThat(sseRequest).isCompleted();
-            assertThat(responseCode.get() == 200 || responseCode.get() == 403).isTrue();
+            assertThat(responseCode.get() == 200).isTrue();
             client.shutdownNow();
         }
 

@@ -41,9 +41,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class McpServerToolStates {
 
-    private final SetClients setClients;
+    final SetClients setClients;
 
     private final McpSyncServerDelegate syncServerDelegate;
+
+    private final AuthResolver authResolver;
 
     private final ObjectMapper objectMapper;
 
@@ -122,10 +124,6 @@ public class McpServerToolStates {
         return setClients.setParseMcpClientUpdateToolState(deployService, mcpServerToolState);
     }
 
-    public static @NotNull DeployedService getAuthDeployedService(String deployService) {
-        return new DeployedService(deployService, AuthResolver.resolveUserOrDefault());
-    }
-
     @StripedLock
     public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> setMcpClient(DeployedService deployService,
                                                                                                                          ToolDecoratorService.McpServerToolState mcpServerToolState) {
@@ -142,7 +140,7 @@ public class McpServerToolStates {
     @StripedLock
     public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult createSetClientErr(String service, DynamicMcpToolCallbackProvider.McpError m,
                                                                                                ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return createSetClientErr(getAuthDeployedService(service), m, mcpServerToolState);
+        return createSetClientErr(setClients.getAuthDeployedService(service), m, mcpServerToolState);
     }
 
     @StripedLock

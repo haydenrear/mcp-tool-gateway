@@ -23,28 +23,38 @@ public class KubernetesFilter extends OncePerRequestFilter {
 
     private final K3sService deployment;
 
+    private final UserMetadataRepository userMetadataRepository;
+
+    private final AuthResolver authResolver;
+
     @Override
     protected void doFilterInternal(@NotNull HttpServletRequest request,
                                     @NotNull HttpServletResponse response,
                                     @NotNull FilterChain filterChain) throws ServletException, IOException {
 
-        var user = Optional.ofNullable(AuthResolver.resolveUser());
+        var user = authResolver.resolveUserName();
 
         if (user.isEmpty()) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "unauthorized - no authentication found.");
             return;
         }
 
-        var d = deployment.doDeployGetValidDeployment();
+        String host;
+        var meta = userMetadataRepository.findByUserId(user.get());
+        if (meta.isPresent() && meta.get().getResolvedHost() != null && !meta.get().getResolvedHost().isBlank()) {
+            host = meta.get().getResolvedHost();
+        } else {
+            var d = deployment.doDeployGetValidDeployment();
 
-        if (!d.success()) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Failed to deploy or get deployment - %s.".formatted(Optional.ofNullable(d.err()).orElse("unknown error.")));
-            return;
+            if (!d.success()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Failed to deploy or get deployment - %s.".formatted(Optional.ofNullable(d.err()).orElse("unknown error.")));
+                return;
+            }
+            host = d.host();
         }
 
-
-        var a = user.map(userResolved -> toolDecoratorService
-                .createAddClient(new ToolDecoratorService.AddClient("cdc", userResolved, d.host())));
+        var a = Optional.of(toolDecoratorService
+                .createAddClient(new ToolDecoratorService.AddClient("cdc", user.get(), host)));
 
         if (a.isEmpty()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Failed to resolve MCP client - unkown error.");

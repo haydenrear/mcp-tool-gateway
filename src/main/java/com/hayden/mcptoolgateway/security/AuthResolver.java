@@ -2,6 +2,8 @@ package com.hayden.mcptoolgateway.security;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.hayden.mcptoolgateway.tool.ToolDecorator;
+import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,15 +14,12 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import org.springframework.security.oauth2.client.*;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
-import org.springframework.util.Assert;
-import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
@@ -36,6 +35,8 @@ public class AuthResolver {
     ClientRegistrationRepository clientRegistrationRepository;
     @Autowired
     ClientCredentialsOAuth2AuthorizedClientProvider manager;
+    @Autowired
+    JwtDecoder jwtDecoder;
 
     private ClientRegistration clientRegistration;
 
@@ -77,13 +78,23 @@ public class AuthResolver {
     }
 
 
-    public static String resolveUserOrDefault() {
+    public String resolveUserOrDefault() {
         // Works when called inside a reactive chain (RouterFunction handlers etc.)
-        return Optional.ofNullable(resolveUser())
-                .orElse("default");
+        return resolveUserName()
+                .orElse(ToolDecoratorService.SYSTEM_ID);
     }
 
-    public static String resolveUser() {
+
+    public Optional<String> resolveUserName() {
+        // Works when called inside a reactive chain (RouterFunction handlers etc.)
+        var bearer = toBearer(
+                SecurityContextHolder.getContext() != null ? SecurityContextHolder.getContext().getAuthentication() : null);
+        return Optional.ofNullable(bearer)
+                .flatMap(s -> Optional.ofNullable(jwtDecoder.decode(s)))
+                .flatMap(j -> Optional.ofNullable(j.getSubject()));
+    }
+
+    public static String resolveBearerTokenHeader() {
         // Works when called inside a reactive chain (RouterFunction handlers etc.)
         return toBearer(
                 SecurityContextHolder.getContext() != null ? SecurityContextHolder.getContext().getAuthentication() : null);
@@ -117,14 +128,15 @@ public class AuthResolver {
 
         // Resource server JWT
         if (auth instanceof JwtAuthenticationToken jwt) {
-            try { return "Bearer " + jwt.getToken().getTokenValue(); } catch (Throwable ignored) {}
+            try { return jwt.getToken().getTokenValue(); } catch (Throwable ignored) {}
             Object creds = jwt.getCredentials();
-            if (creds instanceof String s && !s.isBlank()) return "Bearer " + s;
+            if (creds instanceof String s && !s.isBlank())
+                return s;
         }
 
         // Opaque bearer
         if (auth instanceof BearerTokenAuthentication bta) {
-            return "Bearer " + bta.getToken().getTokenValue();
+            return bta.getToken().getTokenValue();
         }
 
         return null;

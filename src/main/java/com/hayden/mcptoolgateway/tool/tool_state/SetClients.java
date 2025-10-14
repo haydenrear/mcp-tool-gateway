@@ -49,6 +49,8 @@ class SetClients {
     @Autowired
     @Lazy
     ToolDecoratorInterpreter toolDecoratorInterpreter;
+    @Autowired
+    AuthResolver authResolver;
 
     final Map<String, DelegateMcpClient> syncClients = new ConcurrentHashMap<>();
 
@@ -118,7 +120,7 @@ class SetClients {
     public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClientUpdateToolState(
             String deployService,
             ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        var d = new McpServerToolStates.DeployedService(deployService, AuthResolver.resolveUserOrDefault());
+        var d = new McpServerToolStates.DeployedService(deployService, authResolver.resolveUserOrDefault());
         return Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult>
                         liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.BuildClient(d, mcpServerToolState, null))
                 .flatMap(sc -> Free
@@ -174,7 +176,7 @@ class SetClients {
     public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult createSetClientErr(String service,
                                                                                                DynamicMcpToolCallbackProvider.McpError m,
                                                                                                ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return createSetClientErr(McpServerToolStates.getAuthDeployedService(service), m, mcpServerToolState);
+        return createSetClientErr(getAuthDeployedService(service), m, mcpServerToolState);
     }
 
     @StripedLock
@@ -250,6 +252,10 @@ class SetClients {
                 && !CollectionUtils.isEmpty(mcpServerToolState.toolCallbackProviders());
     }
 
+    public @NotNull McpServerToolStates.DeployedService getAuthDeployedService(String deployService) {
+        return new McpServerToolStates.DeployedService(deployService, authResolver.resolveUserOrDefault());
+    }
+
 
     public interface DelegateMcpClient {
 
@@ -283,22 +289,30 @@ class SetClients {
 
         private final Map<String, SingleDelegateMcpClient> clients = new ConcurrentHashMap<>();
 
+        private AuthResolver authResolver;
+
+        public MultipleClientDelegateMcpClient(AuthResolver authResolver) {
+            this.authResolver = authResolver;
+        }
+
         @Override
         public McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
-            var resolved = AuthResolver.resolveUser();
+            var resolved = authResolver.resolveUserName();
             return clients.get(resolved).callTool(callToolRequest);
         }
 
         @Override
         public McpSchema.ListToolsResult listTools() {
-            var resolved = AuthResolver.resolveUser();
+            var resolved = authResolver.resolveUserName();
             return clients.get(resolved).listTools();
         }
 
         @Override
         public void setClient(McpSyncClient client) {
-            var resolved = AuthResolver.resolveUser();
-            this.clients.compute(resolved, (key, prev) -> {
+            var resolved = authResolver.resolveUserName();
+            if (resolved.isEmpty())
+                return;
+            this.clients.compute(resolved.get(), (key, prev) -> {
                 if (prev == null) {
                     prev = new SingleDelegateMcpClient();
                 }
@@ -311,7 +325,10 @@ class SetClients {
 
         @Override
         public void setError(String error) {
-            this.clients.compute(AuthResolver.resolveUser(), (key, prev) -> {
+            Optional<String> s = authResolver.resolveUserName();
+            if (s.isEmpty())
+                return;
+            this.clients.compute(s.get(), (key, prev) -> {
                 if (prev == null) {
                     prev = new SingleDelegateMcpClient();
                 }
@@ -324,25 +341,25 @@ class SetClients {
 
         @Override
         public McpSyncClient client() {
-            var resolved = AuthResolver.resolveUser();
+            var resolved = authResolver.resolveUserName();
             return this.clients.get(resolved).client();
         }
 
         @Override
         public McpSchema.Implementation getClientInfo() {
-            var resolved = AuthResolver.resolveUser();
+            var resolved = authResolver.resolveUserName();
             return this.clients.get(resolved).getClientInfo();
         }
 
         @Override
         public boolean isInitialized() {
-            var resolved = AuthResolver.resolveUser();
+            var resolved = authResolver.resolveUserName();
             return this.clients.get(resolved).isInitialized();
         }
 
         @Override
         public String error() {
-            var resolved = AuthResolver.resolveUser();
+            var resolved = authResolver.resolveUserName();
             return this.clients.get(resolved).error();
         }
     }

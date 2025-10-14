@@ -30,6 +30,9 @@ graphql-props:
   url: http://localhost:8084/graphql
 
 spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
   datasource:
     driver-class-name: org.postgresql.Driver
     username: postgres
