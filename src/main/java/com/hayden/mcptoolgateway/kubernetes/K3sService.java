@@ -10,6 +10,7 @@ import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressRule;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -20,37 +21,16 @@ import java.time.OffsetDateTime;
 
 import java.net.URI;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.hayden.mcptoolgateway.helm.HelmDeployer;
-import com.hayden.mcptoolgateway.helm.HelmConfig.HelmProperties;
+import com.hayden.mcptoolgateway.config.HelmProperties;
 
-/**
- * K3sService selects an existing "unit" Deployment (commit-diff-context-mcp)
- * based on available capacity, scales replicas when necessary, and returns the ingress host
- * to be used by the gateway when creating the MCP HTTP SSE client.
- * <p>
- * Assumptions:
- * - Units are pre-created by Helm (deploy-helm/templates/units.yaml).
- * - Each unit has a corresponding Ingress named exactly the same as the Deployment (the Helm chart does this).
- * - We store and read capacity metadata on the Deployment via annotations:
- * unit.hayden/maxUsers           -> optional int; if missing, treated as "no cap" (Integer.MAX_VALUE)
- * unit.hayden/assignedUsers      -> int; default 0
- * unit.hayden/usersPerReplica    -> optional int; default from env GATEWAY_UNIT_USERS_PER_REPLICA or 10
- * These can be pre-seeded via .Values.unitDefaults.podAnnotations or per-unit podAnnotations.
- * <p>
- * Behavior:
- * - If the current user is already assigned within this gateway instance lifetime, we reuse that assignment.
- * - Otherwise, we find a unit with capacity, increment assignedUsers, compute required replicas = ceil(assigned/usersPerReplica),
- * and scale the Deployment if necessary.
- * - Prefer the unit Ingress host as the endpoint. If not present, fallback to in-cluster Service DNS.
- */
 @Component
+@Slf4j
 public class K3sService {
 
-    private static final Logger log = LoggerFactory.getLogger(K3sService.class);
 
     // Annotation keys used to track capacity/assignment on the Deployment
     private static final String ANN_MAX_USERS = "unit.hayden/maxUsers";
@@ -83,12 +63,15 @@ public class K3sService {
     private KubernetesClient client() {
         KubernetesClient c = this.client;
         if (c == null) {
-            synchronized (this) {
+            try {
+                assignLock.writeLock().lock();
                 c = this.client;
                 if (c == null) {
                     c = new KubernetesClientBuilder().build();
                     this.client = c;
                 }
+            } finally {
+                assignLock.writeLock().unlock();
             }
         }
         return c;
@@ -159,49 +142,53 @@ public class K3sService {
                 }
             }
 
-            // List all unit Deployments in the namespace
-            List<Deployment> units = client().apps().deployments()
-                    .inNamespace(namespace())
-                    .withLabel(LABEL_COMPONENT, COMPONENT_UNIT)
-                    .list()
-                    .getItems();
+            try {
+                assignLock.readLock().lock();
+                List<Deployment> units = client().apps().deployments()
+                        .inNamespace(namespace())
+                        .withLabel(LABEL_COMPONENT, COMPONENT_UNIT)
+                        .list()
+                        .getItems();
 
-            if (CollectionUtils.isEmpty(units)) {
-                return new K3sDeployResult("No unit Deployments found in namespace " + namespace());
+                if (CollectionUtils.isEmpty(units)) {
+                    return new K3sDeployResult("No unit Deployments found in namespace " + namespace());
+                }
+
+                // Choose the unit with capacity and lowest load
+                Deployment chosen = chooseUnit(units);
+                if (chosen == null) {
+                    return new K3sDeployResult("No unit capacity available; consider provisioning additional units.");
+                }
+
+                // Update assigned users and scale replicas if needed
+                String chosenName = chosen.getMetadata().getName();
+                if (!updateAssignmentAndScale(chosen)) {
+                    return new K3sDeployResult("Failed to update assignment/scale for unit " + chosenName);
+                }
+
+                String host = resolveUnitEndpoint(chosenName);
+                if (host == null) {
+                    return new K3sDeployResult("Could not resolve a reachable endpoint for unit " + chosenName);
+                }
+
+                userAssignments.put(user, chosenName);
+
+                // Persist or update DB mapping
+                var meta = userMetadataRepository.findByUserId(user)
+                        .orElseGet(() -> UserMetadata.builder()
+                                .userId(user)
+                                .id(user)
+                                .build());
+                meta.setUnitName(chosenName);
+                meta.setNamespace(namespace());
+                meta.setResolvedHost(host);
+                meta.setLastValidatedAt(OffsetDateTime.now());
+                userMetadataRepository.save(meta);
+
+                return K3sDeployResult.ok(host);
+            } finally {
+                assignLock.readLock().unlock();
             }
-
-            // Choose the unit with capacity and lowest load
-            Deployment chosen = chooseUnit(units);
-            if (chosen == null) {
-                return new K3sDeployResult("No unit capacity available; consider provisioning additional units.");
-            }
-
-            // Update assigned users and scale replicas if needed
-            String chosenName = chosen.getMetadata().getName();
-            if (!updateAssignmentAndScale(chosen)) {
-                return new K3sDeployResult("Failed to update assignment/scale for unit " + chosenName);
-            }
-
-            String host = resolveUnitEndpoint(chosenName);
-            if (host == null) {
-                return new K3sDeployResult("Could not resolve a reachable endpoint for unit " + chosenName);
-            }
-
-            userAssignments.put(user, chosenName);
-
-            // Persist or update DB mapping
-            var meta = userMetadataRepository.findByUserId(user)
-                    .orElseGet(() -> UserMetadata.builder()
-                            .userId(user)
-                            .id(user)
-                            .build());
-            meta.setUnitName(chosenName);
-            meta.setNamespace(namespace());
-            meta.setResolvedHost(host);
-            meta.setLastValidatedAt(OffsetDateTime.now());
-            userMetadataRepository.save(meta);
-
-            return K3sDeployResult.ok(host);
         } catch (Exception e) {
             log.error("K3sService.doDeployGetValidDeployment failed: {}", e.getMessage(), e);
             return new K3sDeployResult("Exception: " + e.getMessage());
@@ -259,9 +246,9 @@ public class K3sService {
         int requiredReplicas = Math.max(1, (int) Math.ceil((double) assigned / Math.max(1, upr)));
         int currentReplicas = Optional.ofNullable(current.getSpec()).map(s -> s.getReplicas() == null ? 0 : s.getReplicas()).orElse(0);
 
-        // Apply desired state via Helm upgrade with per-unit overrides
-        assignLock.writeLock().lock();
         try {
+            // Apply desired state via Helm upgrade with per-unit overrides
+            assignLock.writeLock().lock();
             int replicasToSet = Math.max(currentReplicas, requiredReplicas);
 
             HelmDeployer.UnitOverride override = HelmDeployer.UnitOverride.builder()
@@ -283,9 +270,33 @@ public class K3sService {
             Map<String, HelmDeployer.UnitOverride> overrides = new HashMap<>();
             overrides.put(name, override);
 
-            HelmDeployer.Result res = helmDeployer.upgradeInstallWithUnitOverrides(
-                    helmProperties.defaultReleaseSpec(),
-                    overrides
+            String cell = Optional.ofNullable(current.getMetadata().getLabels())
+                    .map(m -> m.get("unit.hayden/cell"))
+                    .orElse(null);
+            String releaseName = (cell != null && !cell.isBlank())
+                    ? "cell-" + cell
+                    : helmProperties.getReleaseName();
+
+            // Build values for helm upgrade to set both instanceOverride and unitOverrides
+            Map<String, Object> values = new HashMap<>();
+            values.put("instanceOverride", releaseName);
+
+            Map<String, Object> unitOverridesVals = new HashMap<>();
+            Map<String, Object> one = new HashMap<>();
+            one.put("replicaCount", replicasToSet);
+            Map<String, String> anns = new HashMap<>();
+            anns.put(ANN_ASSIGNED_USERS, String.valueOf(assigned));
+            anns.put(ANN_USERS_PER_REPLICA, String.valueOf(upr));
+            if (ann.containsKey(ANN_MAX_USERS) || DEFAULT_MAX_USERS != Integer.MAX_VALUE) {
+                anns.put(ANN_MAX_USERS, String.valueOf(maxUsers));
+            }
+            one.put("annotations", anns);
+            unitOverridesVals.put(name, one);
+            values.put("unitOverrides", unitOverridesVals);
+
+            HelmDeployer.HelmResult res = helmDeployer.upgradeInstall(
+                    helmProperties.toReleaseSpec(releaseName),
+                    values
             );
 
             if (!res.success()) {

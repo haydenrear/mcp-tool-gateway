@@ -40,26 +40,7 @@ public interface HelmDeployer {
      * @param values Arbitrary key/value overrides mapped to .Values (merged at top-level).
      * @return result of the helm invocation
      */
-    Result upgradeInstall(ReleaseSpec spec, Map<String, Object> values);
-
-    /**
-     * Upgrade (or install) a release with per-unit overrides only.
-     * Implementations should translate this into a --set-json unitOverrides='...' or equivalent.
-     *
-     * Typical usage from K3sService.updateAssignmentAndScale:
-     * - unitOverrides.<unitFullname>.replicaCount := requiredReplicas
-     * - unitOverrides.<unitFullname>.annotations := { assignedUsers, usersPerReplica, maxUsers, ... }
-     *
-     * @param spec           Release metadata (name, namespace, chart path, timeout, and extra args).
-     * @param unitOverrides  Map keyed by rendered unit fullname (the Service/Deployment name for the unit).
-     * @return result of the helm invocation
-     */
-    Result upgradeInstallWithUnitOverrides(ReleaseSpec spec, Map<String, UnitOverride> unitOverrides);
-
-    /**
-     * Returns true if the underlying helm client is available and usable (e.g., "helm version" works).
-     */
-    boolean isAvailable();
+    HelmResult upgradeInstall(ReleaseSpec spec, Map<String, Object> values);
 
     /**
      * Returns a short version string for diagnostics (e.g., "v3.14.0").
@@ -70,14 +51,14 @@ public interface HelmDeployer {
     /**
          * Canonical result for a helm invocation.
          */
-    record Result(boolean success, int exitCode,
-                  String stdout, String stderr) {
-            public static Result ok(String stdout) {
-                return new Result(true, 0, stdout, "");
+    record HelmResult(boolean success, int exitCode,
+                      String stdout, String stderr) {
+            public static HelmResult ok(String stdout) {
+                return new HelmResult(true, 0, stdout, "");
             }
 
-            public static Result fail(int exitCode, String stdout, String stderr) {
-                return new Result(false, exitCode, stdout, stderr);
+            public static HelmResult fail(int exitCode, String stdout, String stderr) {
+                return new HelmResult(false, exitCode, stdout, stderr);
             }
         }
 
