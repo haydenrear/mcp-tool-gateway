@@ -35,7 +35,7 @@ public class KubernetesFilter extends OncePerRequestFilter {
         var user = authResolver.resolveUserName();
 
         if (user.isEmpty()) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "unauthorized - no authentication found.");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized - no authentication found.");
             return;
         }
 
