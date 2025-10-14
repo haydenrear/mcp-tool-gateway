@@ -19,6 +19,7 @@ dependencies {
     implementation(project(":commit-diff-model"))
     implementation(project(":tracing"))
     implementation(project(":test-mcp-server"))
+    implementation(project(":jpa-persistence"))
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")
@@ -72,4 +73,3 @@ tasks.bootJar {
 //    dependsOn(project(":function-calling").tasks.named("copyJar"))
     archiveFileName = "mcp-tool-gateway.jar"
 }
-

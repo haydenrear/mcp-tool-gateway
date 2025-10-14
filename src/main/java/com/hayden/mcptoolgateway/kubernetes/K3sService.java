@@ -14,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.time.OffsetDateTime;
 
 import java.net.URI;
 import java.util.*;
@@ -60,6 +62,9 @@ public class K3sService {
     private final Map<String, String> userAssignments = new ConcurrentHashMap<>();
 
     private volatile KubernetesClient client;
+    
+    @Autowired
+    private UserMetadataRepository userMetadataRepository;
 
     private KubernetesClient client() {
         KubernetesClient c = this.client;
@@ -97,9 +102,29 @@ public class K3sService {
      * and return a reachable host (prefer ingress, otherwise service DNS).
      */
     public K3sDeployResult doDeployGetValidDeployment() {
-        String user = Optional.ofNullable(AuthResolver.resolveUser()).orElse("default");
+        String user = Optional.ofNullable(AuthResolver.resolveUserOrDefault()).orElse("default");
 
         try {
+            // First, check persisted assignment
+            var existing = userMetadataRepository.findByUserId(user);
+            if (existing.isPresent()) {
+                var meta = existing.get();
+                String host = meta.getResolvedHost();
+                if (host == null || host.isBlank()) {
+                    host = resolveUnitEndpoint(meta.getUnitName());
+                }
+                if (host != null) {
+                    meta.setResolvedHost(host);
+                    meta.setLastValidatedAt(OffsetDateTime.now());
+                    userMetadataRepository.save(meta);
+                    userAssignments.put(user, meta.getUnitName());
+                    return K3sDeployResult.ok(host);
+                } else {
+                    // mapping invalid; remove and reassign
+                    userMetadataRepository.delete(meta);
+                    userAssignments.remove(user);
+                }
+            }
             // If we've already assigned a unit for this user in this gateway instance, reuse it.
             String already = userAssignments.get(user);
             if (already != null) {
@@ -141,6 +166,18 @@ public class K3sService {
             }
 
             userAssignments.put(user, chosenName);
+
+            // Persist or update DB mapping
+            var meta = userMetadataRepository.findByUserId(user)
+                    .orElseGet(() -> UserMetadata.builder()
+                            .userId(user)
+                            .build());
+            meta.setUnitName(chosenName);
+            meta.setNamespace(namespace());
+            meta.setResolvedHost(host);
+            meta.setLastValidatedAt(OffsetDateTime.now());
+            userMetadataRepository.save(meta);
+
             return K3sDeployResult.ok(host);
         } catch (Exception e) {
             log.error("K3sService.doDeployGetValidDeployment failed: {}", e.getMessage(), e);
