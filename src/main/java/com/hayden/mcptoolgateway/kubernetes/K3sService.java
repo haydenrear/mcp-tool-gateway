@@ -5,7 +5,7 @@ import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressRule;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -21,6 +21,11 @@ import java.time.OffsetDateTime;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import com.hayden.mcptoolgateway.helm.HelmDeployer;
+import com.hayden.mcptoolgateway.helm.HelmConfig.HelmProperties;
 
 /**
  * K3sService selects an existing "unit" Deployment (commit-diff-context-mcp)
@@ -68,6 +73,12 @@ public class K3sService {
     private UserMetadataRepository userMetadataRepository;
     @Autowired
     private AuthResolver authResolver;
+    @Autowired
+    private HelmDeployer helmDeployer;
+    @Autowired
+    private HelmProperties helmProperties;
+
+    private final ReadWriteLock assignLock = new ReentrantReadWriteLock();
 
     private KubernetesClient client() {
         KubernetesClient c = this.client;
@@ -248,35 +259,48 @@ public class K3sService {
         int requiredReplicas = Math.max(1, (int) Math.ceil((double) assigned / Math.max(1, upr)));
         int currentReplicas = Optional.ofNullable(current.getSpec()).map(s -> s.getReplicas() == null ? 0 : s.getReplicas()).orElse(0);
 
-        // Patch annotations and replicas in a single edit request
+        // Apply desired state via Helm upgrade with per-unit overrides
+        assignLock.writeLock().lock();
         try {
-            Map<String, String> newAnn = new HashMap<>(ann);
-            newAnn.put(ANN_ASSIGNED_USERS, String.valueOf(assigned));
-            newAnn.putIfAbsent(ANN_USERS_PER_REPLICA, String.valueOf(upr));
-            // Only set maxUsers if previously present or env default is not MAX_VALUE
-            if (ann.containsKey(ANN_MAX_USERS) || DEFAULT_MAX_USERS != Integer.MAX_VALUE) {
-                newAnn.putIfAbsent(ANN_MAX_USERS, String.valueOf(maxUsers));
-            }
-
             int replicasToSet = Math.max(currentReplicas, requiredReplicas);
 
-            client().apps().deployments()
-                    .inNamespace(namespace())
-                    .withName(name)
-                    .edit(d -> new DeploymentBuilder(d)
-                            .editMetadata()
-                            .withAnnotations(newAnn)
-                            .endMetadata()
-                            .editSpec()
-                            .withReplicas(replicasToSet)
-                            .endSpec()
-                            .build());
-            log.info("Updated unit {}: assignedUsers={}, usersPerReplica={}, replicas={}->{}",
+            HelmDeployer.UnitOverride override = HelmDeployer.UnitOverride.builder()
+                    .replicaCount(replicasToSet)
+                    .annotation(ANN_ASSIGNED_USERS, String.valueOf(assigned))
+                    .annotation(ANN_USERS_PER_REPLICA, String.valueOf(upr))
+                    .build();
+
+            // Only set maxUsers if previously present or env default is not MAX_VALUE
+            if (ann.containsKey(ANN_MAX_USERS) || DEFAULT_MAX_USERS != Integer.MAX_VALUE) {
+                override = HelmDeployer.UnitOverride.builder()
+                        .replicaCount(replicasToSet)
+                        .annotation(ANN_ASSIGNED_USERS, String.valueOf(assigned))
+                        .annotation(ANN_USERS_PER_REPLICA, String.valueOf(upr))
+                        .annotation(ANN_MAX_USERS, String.valueOf(maxUsers))
+                        .build();
+            }
+
+            Map<String, HelmDeployer.UnitOverride> overrides = new HashMap<>();
+            overrides.put(name, override);
+
+            HelmDeployer.Result res = helmDeployer.upgradeInstallWithUnitOverrides(
+                    helmProperties.defaultReleaseSpec(),
+                    overrides
+            );
+
+            if (!res.success()) {
+                log.error("Helm upgrade failed for unit {}: code={}, stderr={}", name, res.exitCode(), res.stderr());
+                return false;
+            }
+
+            log.info("Updated unit {} via Helm: assignedUsers={}, usersPerReplica={}, replicas={}->{}",
                     name, assigned, upr, currentReplicas, replicasToSet);
             return true;
         } catch (Exception e) {
-            log.error("Failed to patch Deployment {}: {}", name, e.getMessage(), e);
+            log.error("Failed to apply Helm upgrade for unit {}: {}", name, e.getMessage(), e);
             return false;
+        } finally {
+            assignLock.writeLock().unlock();
         }
     }
 

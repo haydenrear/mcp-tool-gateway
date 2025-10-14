@@ -20,6 +20,7 @@ import java.util.List;
  *     binary: "helm"                  # Path or name of the helm binary (default: "helm")
  *     chartPath: "deploy-helm"        # Filesystem path to the chart root
  *     namespace: "default"            # Optional namespace override for releases
+ *     releaseName: "commit-diff-context"  # Optional default Helm release name
  *     wait: true                      # Whether to pass --wait to helm
  *     timeoutSeconds: 300             # Helm --timeout value in seconds
  *     extraArgs: []                   # Additional args to append (e.g., ["--debug"])
@@ -68,6 +69,11 @@ public class HelmConfig {
         private String namespace;
 
         /**
+         * Default Helm release name to use when one is not explicitly provided.
+         */
+        private String releaseName = "commit-diff-context";
+
+        /**
          * Whether to pass "--wait" to helm upgrade --install.
          */
         private boolean wait = true;
@@ -102,6 +108,14 @@ public class HelmConfig {
                 }
             }
             return b.build();
+        }
+
+        /**
+         * Convenience to build a ReleaseSpec using the configured default releaseName.
+         * Useful for operations that target the primary release without computing a name per call.
+         */
+        public HelmDeployer.ReleaseSpec defaultReleaseSpec() {
+            return toReleaseSpec(releaseName);
         }
     }
 }
