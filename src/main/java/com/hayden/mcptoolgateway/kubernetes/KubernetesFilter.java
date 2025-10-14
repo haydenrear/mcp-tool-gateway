@@ -40,29 +40,22 @@ public class KubernetesFilter extends OncePerRequestFilter {
         }
 
         String host;
-        var meta = userMetadataRepository.findByUserId(user.get());
-        if (meta.isPresent() && meta.get().getResolvedHost() != null && !meta.get().getResolvedHost().isBlank()) {
-            host = meta.get().getResolvedHost();
-        } else {
-            var d = deployment.doDeployGetValidDeployment();
 
-            if (!d.success()) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Failed to deploy or get deployment - %s.".formatted(Optional.ofNullable(d.err()).orElse("unknown error.")));
-                return;
-            }
+        var d = deployment.doDeployGetValidDeployment(user.get());
+
+        if (!d.success()) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Failed to deploy or get deployment - %s.".formatted(Optional.ofNullable(d.err()).orElse("unknown error.")));
+            return;
+        }
+        else  {
             host = d.host();
         }
 
-        var a = Optional.of(toolDecoratorService
-                .createAddClient(new ToolDecoratorService.AddClient("cdc", user.get(), host)));
+        var a = toolDecoratorService
+                .createAddClient(new ToolDecoratorService.AddClient("cdc", user.get(), host));
 
-        if (a.isEmpty()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Failed to resolve MCP client - unkown error.");
-            return;
-        }
-
-        if (!a.get().success()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Failed to resolve MCP client - %s.".formatted(Optional.ofNullable(a.get().underlying()).map(ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult::err).orElse("unknown error.")));
+        if (!a.success()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Failed to resolve MCP client - %s.".formatted(Optional.ofNullable(a.underlying()).map(ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult::err).orElse("unknown error.")));
             return;
         }
 

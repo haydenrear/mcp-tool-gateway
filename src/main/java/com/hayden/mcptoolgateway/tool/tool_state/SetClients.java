@@ -297,22 +297,20 @@ class SetClients {
 
         @Override
         public McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
-            var resolved = authResolver.resolveUserName();
+            var resolved = authResolver.resolveUserOrDefault();
             return clients.get(resolved).callTool(callToolRequest);
         }
 
         @Override
         public McpSchema.ListToolsResult listTools() {
-            var resolved = authResolver.resolveUserName();
+            var resolved = authResolver.resolveUserOrDefault();
             return clients.get(resolved).listTools();
         }
 
         @Override
         public void setClient(McpSyncClient client) {
-            var resolved = authResolver.resolveUserName();
-            if (resolved.isEmpty())
-                return;
-            this.clients.compute(resolved.get(), (key, prev) -> {
+            var resolved = authResolver.resolveUserOrDefault();
+            this.clients.compute(resolved, (key, prev) -> {
                 if (prev == null) {
                     prev = new SingleDelegateMcpClient();
                 }
@@ -325,10 +323,8 @@ class SetClients {
 
         @Override
         public void setError(String error) {
-            Optional<String> s = authResolver.resolveUserName();
-            if (s.isEmpty())
-                return;
-            this.clients.compute(s.get(), (key, prev) -> {
+            String s = authResolver.resolveUserOrDefault();
+            this.clients.compute(s, (key, prev) -> {
                 if (prev == null) {
                     prev = new SingleDelegateMcpClient();
                 }
@@ -341,25 +337,25 @@ class SetClients {
 
         @Override
         public McpSyncClient client() {
-            var resolved = authResolver.resolveUserName();
+            var resolved = authResolver.resolveUserOrDefault();
             return this.clients.get(resolved).client();
         }
 
         @Override
         public McpSchema.Implementation getClientInfo() {
-            var resolved = authResolver.resolveUserName();
+            var resolved = authResolver.resolveUserOrDefault();
             return this.clients.get(resolved).getClientInfo();
         }
 
         @Override
         public boolean isInitialized() {
-            var resolved = authResolver.resolveUserName();
+            var resolved = authResolver.resolveUserOrDefault();
             return this.clients.get(resolved).isInitialized();
         }
 
         @Override
         public String error() {
-            var resolved = authResolver.resolveUserName();
+            var resolved = authResolver.resolveUserOrDefault();
             return this.clients.get(resolved).error();
         }
     }

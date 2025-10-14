@@ -15,7 +15,7 @@ public class DelegateMcpClientFactory {
 
     public SetClients.DelegateMcpClient clientFactory(ToolDecoratorService.McpServerToolState toolState) {
         if (toolState == null)
-            return new SetClients.MultipleClientDelegateMcpClient(authResolver);
+            return new SetClients.SingleDelegateMcpClient();
         if (toolState.deployableMcpServer().isHasMany())
             return new SetClients.MultipleClientDelegateMcpClient(authResolver);
         else

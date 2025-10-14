@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+
 import java.time.OffsetDateTime;
 
 import java.net.URI;
@@ -25,20 +26,20 @@ import java.util.concurrent.ConcurrentHashMap;
  * K3sService selects an existing "unit" Deployment (commit-diff-context-mcp)
  * based on available capacity, scales replicas when necessary, and returns the ingress host
  * to be used by the gateway when creating the MCP HTTP SSE client.
- *
+ * <p>
  * Assumptions:
  * - Units are pre-created by Helm (deploy-helm/templates/units.yaml).
  * - Each unit has a corresponding Ingress named exactly the same as the Deployment (the Helm chart does this).
  * - We store and read capacity metadata on the Deployment via annotations:
- *     unit.hayden/maxUsers           -> optional int; if missing, treated as "no cap" (Integer.MAX_VALUE)
- *     unit.hayden/assignedUsers      -> int; default 0
- *     unit.hayden/usersPerReplica    -> optional int; default from env GATEWAY_UNIT_USERS_PER_REPLICA or 10
- *   These can be pre-seeded via .Values.unitDefaults.podAnnotations or per-unit podAnnotations.
- *
+ * unit.hayden/maxUsers           -> optional int; if missing, treated as "no cap" (Integer.MAX_VALUE)
+ * unit.hayden/assignedUsers      -> int; default 0
+ * unit.hayden/usersPerReplica    -> optional int; default from env GATEWAY_UNIT_USERS_PER_REPLICA or 10
+ * These can be pre-seeded via .Values.unitDefaults.podAnnotations or per-unit podAnnotations.
+ * <p>
  * Behavior:
  * - If the current user is already assigned within this gateway instance lifetime, we reuse that assignment.
  * - Otherwise, we find a unit with capacity, increment assignedUsers, compute required replicas = ceil(assigned/usersPerReplica),
- *   and scale the Deployment if necessary.
+ * and scale the Deployment if necessary.
  * - Prefer the unit Ingress host as the endpoint. If not present, fallback to in-cluster Service DNS.
  */
 @Component
@@ -59,10 +60,10 @@ public class K3sService {
     private static final int DEFAULT_USERS_PER_REPLICA = getEnvInt("GATEWAY_UNIT_USERS_PER_REPLICA", 10);
     private static final int DEFAULT_MAX_USERS = getEnvInt("GATEWAY_UNIT_MAX_USERS", Integer.MAX_VALUE);
 
-    private final Map<String, String> userAssignments = new ConcurrentHashMap<>();
+    private final Map<String, String> userAssignments = Collections.synchronizedMap(new WeakHashMap<>());
 
     private volatile KubernetesClient client;
-    
+
     @Autowired
     private UserMetadataRepository userMetadataRepository;
     @Autowired
@@ -87,15 +88,23 @@ public class K3sService {
         return ns != null && !ns.isBlank() ? ns : "default";
     }
 
-    public record K3sDeployResult(String err, boolean success, String host) {
+    public record K3sDeployResult(String err,
+                                  boolean success,
+                                  String host) {
         public K3sDeployResult(boolean success, String err) {
             this(err, success, "");
         }
+
         public K3sDeployResult(String err) {
             this(err, false, null);
         }
+
         public static K3sDeployResult ok(String host) {
             return new K3sDeployResult(null, true, host);
+        }
+
+        public static K3sDeployResult err(String s) {
+            return new K3sDeployResult(s);
         }
     }
 
@@ -103,12 +112,23 @@ public class K3sService {
      * Find or assign a unit for the current authenticated user, scale replicas as needed,
      * and return a reachable host (prefer ingress, otherwise service DNS).
      */
-    public K3sDeployResult doDeployGetValidDeployment() {
-    String user = authResolver.resolveUserOrDefault();
+    public K3sDeployResult doDeployGetValidDeployment(String user) {
 
         try {
-            // First, check persisted assignment
+            // If we've already assigned a unit for this user in this gateway instance, reuse it.
+            String already = userAssignments.get(user);
+            if (already != null) {
+                String host = resolveUnitEndpoint(already);
+                if (host != null) {
+                    return K3sDeployResult.ok(host);
+                } else {
+                    // If the unit disappeared, drop the assignment and reassign below.
+                    userAssignments.remove(user);
+                }
+            }
+
             var existing = userMetadataRepository.findByUserId(user);
+
             if (existing.isPresent()) {
                 var meta = existing.get();
                 String host = meta.getResolvedHost();
@@ -124,17 +144,6 @@ public class K3sService {
                 } else {
                     // mapping invalid; remove and reassign
                     userMetadataRepository.delete(meta);
-                    userAssignments.remove(user);
-                }
-            }
-            // If we've already assigned a unit for this user in this gateway instance, reuse it.
-            String already = userAssignments.get(user);
-            if (already != null) {
-                String host = resolveUnitEndpoint(already);
-                if (host != null) {
-                    return K3sDeployResult.ok(host);
-                } else {
-                    // If the unit disappeared, drop the assignment and reassign below.
                     userAssignments.remove(user);
                 }
             }
@@ -256,10 +265,10 @@ public class K3sService {
                     .withName(name)
                     .edit(d -> new DeploymentBuilder(d)
                             .editMetadata()
-                                .withAnnotations(newAnn)
+                            .withAnnotations(newAnn)
                             .endMetadata()
                             .editSpec()
-                                .withReplicas(replicasToSet)
+                            .withReplicas(replicasToSet)
                             .endSpec()
                             .build());
             log.info("Updated unit {}: assignedUsers={}, usersPerReplica={}, replicas={}->{}",
@@ -330,7 +339,8 @@ public class K3sService {
     }
 
     private Integer resolveHttpPort(Service svc) {
-        if (svc.getSpec().getPorts() == null) return null;
+        if (svc.getSpec().getPorts() == null)
+            return null;
         // Prefer port named "http"
         return svc.getSpec().getPorts().stream()
                 .filter(p -> "http".equalsIgnoreCase(p.getName()))
@@ -347,7 +357,8 @@ public class K3sService {
         }
         IntOrString t = p.getTargetPort();
         if (t == null) return null;
-        if (t.getIntVal() != null) return t.getIntVal();
+        if (t.getIntVal() != null)
+            return t.getIntVal();
         try {
             return Integer.parseInt(t.getStrVal());
         } catch (Exception ignored) {

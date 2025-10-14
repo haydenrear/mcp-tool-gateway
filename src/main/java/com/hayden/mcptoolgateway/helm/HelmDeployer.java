@@ -68,23 +68,18 @@ public interface HelmDeployer {
     String version();
 
     /**
-     * Canonical result for a helm invocation.
-     */
-    @Value
-    class Result {
-        boolean success;
-        int exitCode;
-        String stdout;
-        String stderr;
+         * Canonical result for a helm invocation.
+         */
+    record Result(boolean success, int exitCode,
+                  String stdout, String stderr) {
+            public static Result ok(String stdout) {
+                return new Result(true, 0, stdout, "");
+            }
 
-        public static Result ok(String stdout) {
-            return new Result(true, 0, stdout, "");
+            public static Result fail(int exitCode, String stdout, String stderr) {
+                return new Result(false, exitCode, stdout, stderr);
+            }
         }
-
-        public static Result fail(int exitCode, String stdout, String stderr) {
-            return new Result(false, exitCode, stdout, stderr);
-        }
-    }
 
     /**
      * Release metadata used by all operations.
