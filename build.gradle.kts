@@ -1,3 +1,6 @@
+import Com_hayden_docker_gradle.DockerContext
+import java.nio.file.Paths
+
 plugins {
     id("com.hayden.mcp")
     id("com.hayden.spring-app")
@@ -7,12 +10,23 @@ plugins {
     id("com.hayden.docker-compose")
     id("com.hayden.paths")
     id("com.hayden.jpa-persistence")
+    id("com.hayden.docker")
 }
 
 group = "com.hayden"
 version = "1.0.0"
 
 tasks.register("prepareKotlinBuildScriptModel") {}
+
+wrapDocker {
+    ctx = arrayOf(
+        DockerContext(
+            "localhost:5005/mcp-tool-gateway",
+            "${project.projectDir}/src/main/docker",
+            "mcpToolGateway"
+        )
+    )
+}
 
 dependencies {
     implementation(project(":utilitymodule"))
@@ -22,6 +36,7 @@ dependencies {
     implementation(project(":test-mcp-server"))
     implementation(project(":jpa-persistence"))
     implementation(project(":persistence"))
+    implementation(project(":runner_code"))
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")
@@ -58,6 +73,42 @@ tasks.register<Copy>("copyCommitDiffCtxMcp") {
     into(file(projDir).resolve("ctx_bin"))
     // Optionally rename it to a fixed name
     rename { "commit-diff-context-mcp.jar" }
+}
+
+val enableDocker = project.property("enable-docker")?.toString()?.toBoolean()?.or(false) ?: false
+val buildMcpToolGateway = project.property("build-mcp-tool-gateway")?.toString()?.toBoolean()?.or(false) ?: false
+tasks.register("copyJar") {
+    dependsOn("bootJar")
+    println(projectDir.path)
+    delete {
+        fileTree(Paths.get(projectDir.path,"src/main/docker")) {
+            include("**/*.jar")
+        }
+    }
+    copy {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        from(Paths.get(projectDir.path, "build/libs"))
+        into(Paths.get(projectDir.path,"src/main/docker"))
+        include("mcp-tool-gateway.jar")
+    }
+}
+
+if (enableDocker && buildMcpToolGateway) {
+    tasks.getByPath("bootJar").finalizedBy("buildDocker")
+
+    tasks.getByPath("bootJar").doLast {
+        tasks.getByPath("mcpToolGatewayDockerImage").dependsOn("copyJar")
+        tasks.getByPath("pushImages").dependsOn("copyJar")
+    }
+
+    tasks.register("buildDocker") {
+        dependsOn("bootJar", "copyJar", "mcpToolGatewayDockerImage", "pushImages")
+        doLast {
+            delete(fileTree(Paths.get(projectDir.path, "src/main/docker")) {
+                include("**/*.jar")
+            })
+        }
+    }
 }
 
 tasks.compileJava {

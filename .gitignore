@@ -40,3 +40,5 @@ out/
 ctx_bin/**
 
 *.pem
+src/main/docker/*.jar
+bin/*

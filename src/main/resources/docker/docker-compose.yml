@@ -1,6 +1,6 @@
 services:
 #  function-calling:
-#    image: localhost:5001/function-calling
+#    image: localhost:5005/function-calling
 #    container_name: function-calling
 #    networks:
 #      function-calling-network:
@@ -10,7 +10,7 @@ services:
 #      SERVER_PORT: 8084
 #      PG_HOST: host.docker.internal
 #  function-calling-postgres:
-#    image: localhost:5001/postgres-pgvector
+#    image: localhost:5005/postgres-pgvector
 #    container_name: function-calling-postgres
 #    networks:
 #      function-calling-network:
@@ -22,7 +22,7 @@ services:
 #    ports:
 #      - "5401:5432"
   mcp-gateway-postgres:
-    image: localhost:5001/postgres-pgvector
+    image: localhost:5005/postgres-pgvector
     container_name: mcp-gateway-postgres
     networks:
       mcp-gateway-network:
