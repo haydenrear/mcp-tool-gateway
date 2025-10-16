@@ -18,10 +18,12 @@ version = "1.0.0"
 
 tasks.register("prepareKotlinBuildScriptModel") {}
 
+val registryBase = project.property("registryBase") ?: "localhost:5001"
+
 wrapDocker {
     ctx = arrayOf(
         DockerContext(
-            "localhost:5005/mcp-tool-gateway",
+            "${registryBase}/mcp-tool-gateway",
             "${project.projectDir}/src/main/docker",
             "mcpToolGateway"
         )
@@ -125,4 +127,5 @@ tasks.test {
 tasks.bootJar {
 //    dependsOn(project(":function-calling").tasks.named("copyJar"))
     archiveFileName = "mcp-tool-gateway.jar"
+    enabled = true
 }
