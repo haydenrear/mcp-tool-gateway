@@ -79,6 +79,7 @@ tasks.register<Copy>("copyCommitDiffCtxMcp") {
 
 val enableDocker = project.property("enable-docker")?.toString()?.toBoolean()?.or(false) ?: false
 val buildMcpToolGateway = project.property("build-mcp-tool-gateway")?.toString()?.toBoolean()?.or(false) ?: false
+
 tasks.register("copyJar") {
     dependsOn("bootJar")
     println(projectDir.path)
@@ -104,7 +105,7 @@ if (enableDocker && buildMcpToolGateway) {
     }
 
     tasks.register("buildDocker") {
-        dependsOn("bootJar", "copyJar", "mcpToolGatewayDockerImage", "pushImages")
+        dependsOn("bootJar", "copyJar", "mcpToolGatewayDockerImage")
         doLast {
             delete(fileTree(Paths.get(projectDir.path, "src/main/docker")) {
                 include("**/*.jar")
