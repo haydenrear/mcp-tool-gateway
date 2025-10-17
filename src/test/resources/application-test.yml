@@ -1,4 +1,8 @@
 logging.config: classpath:logback.xml
+
+authorization-server:
+  base-uri: http://localhost:9999
+
 gateway:
   deployable-mcp-servers:
     test-rollback-server:

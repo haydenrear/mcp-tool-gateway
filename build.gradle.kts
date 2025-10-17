@@ -11,6 +11,7 @@ plugins {
     id("com.hayden.paths")
     id("com.hayden.jpa-persistence")
     id("com.hayden.docker")
+    id("com.hayden.wiremock")
 }
 
 group = "com.hayden"
@@ -34,6 +35,7 @@ dependencies {
     implementation(project(":utilitymodule"))
     implementation(project(":graphql"))
     implementation(project(":commit-diff-model"))
+    implementation(project(":commit-diff-context"))
     implementation(project(":tracing"))
     implementation(project(":test-mcp-server"))
     implementation(project(":jpa-persistence"))
@@ -45,8 +47,6 @@ dependencies {
     implementation("org.springframework.security:spring-security-core")
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
     implementation("io.fabric8:kubernetes-client:6.11.0")
-
-    testImplementation("org.wiremock:wiremock-standalone:3.9.1")
 }
 
 val projDir = layout.projectDirectory

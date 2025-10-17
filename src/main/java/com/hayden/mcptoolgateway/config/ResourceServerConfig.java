@@ -1,5 +1,8 @@
 package com.hayden.mcptoolgateway.config;
 
+import com.hayden.commitdiffcontext.cdc_config.AuthorizationServerConfigProps;
+import com.hayden.commitdiffcontext.cdc_config.CreditsConfig;
+import com.hayden.commitdiffcontext.credits.CreditVerificationFilter;
 import com.hayden.mcptoolgateway.kubernetes.KubernetesFilter;
 import com.hayden.utilitymodule.security.KeyConfigProperties;
 import com.hayden.utilitymodule.security.KeyFiles;
@@ -27,14 +30,17 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.UUID;
 
 @Configuration
-@Import({KeyConfigProperties.class, KeyFiles.class})
+@Import({
+        CreditsConfig.class, KeyConfigProperties.class, KeyFiles.class,
+        CreditVerificationFilter.class, AuthorizationServerConfigProps.class})
 public class ResourceServerConfig {
 
     @Bean
-    SecurityFilterChain resourceServerSecurityConf(HttpSecurity http, KubernetesFilter kubernetesFilter) throws Exception {
+    SecurityFilterChain resourceServerSecurityConf(HttpSecurity http, KubernetesFilter kubernetesFilter, CreditVerificationFilter creditVerificationFilter) throws Exception {
         var b= http
                 .oauth2ResourceServer(res -> res.jwt(Customizer.withDefaults()))
-                .addFilterAfter(kubernetesFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(creditVerificationFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(kubernetesFilter, CreditVerificationFilter.class)
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests.anyRequest().authenticated())
                 .csrf(CsrfConfigurer::disable)
                 .cors(Customizer.withDefaults())

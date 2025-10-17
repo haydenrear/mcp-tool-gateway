@@ -1,3 +1,6 @@
+authorization-server:
+  base-uri: http://cdc-commit-diff-context-authorization:8080
+
 gateway:
   deployable-mcp-servers:
     commit-diff-context-mcp:
