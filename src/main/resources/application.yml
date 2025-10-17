@@ -34,6 +34,9 @@ graphql-props:
   url: http://localhost:8084/graphql
 
 spring:
+  dgs:
+    graphql:
+      enabled: false
   jpa:
     hibernate:
       ddl-auto: create-drop
