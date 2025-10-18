@@ -21,14 +21,23 @@ tasks.register("prepareKotlinBuildScriptModel") {}
 
 val registryBase = project.property("registryBase") ?: "localhost:5001"
 
-wrapDocker {
-    ctx = arrayOf(
-        DockerContext(
-            "${registryBase}/mcp-tool-gateway",
-            "${project.projectDir}/src/main/docker",
-            "mcpToolGateway"
-        )
+val enableDocker = project.property("enable-docker")?.toString()?.toBoolean()?.or(false) ?: false
+val buildMcpToolGateway = project.property("build-mcp-tool-gateway")?.toString()?.toBoolean()?.or(false) ?: false
+
+
+var arrayOf = arrayOf(
+    DockerContext(
+        "${registryBase}/mcp-tool-gateway",
+        "${project.projectDir}/src/main/docker",
+        "mcpToolGateway"
     )
+)
+
+if (!enableDocker || !buildMcpToolGateway)
+    arrayOf = emptyArray<DockerContext>()
+
+wrapDocker {
+    ctx = arrayOf
 }
 
 dependencies {
@@ -76,9 +85,6 @@ tasks.register<Copy>("copyCommitDiffCtxMcp") {
     // Optionally rename it to a fixed name
     rename { "commit-diff-context-mcp.jar" }
 }
-
-val enableDocker = project.property("enable-docker")?.toString()?.toBoolean()?.or(false) ?: false
-val buildMcpToolGateway = project.property("build-mcp-tool-gateway")?.toString()?.toBoolean()?.or(false) ?: false
 
 
 if (enableDocker && buildMcpToolGateway) {
