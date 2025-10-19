@@ -2,6 +2,8 @@ logging.config: classpath:logback.xml
 
 authorization-server:
   base-uri: http://localhost:9999
+  credits-path: /api/v1/credits/get
+  credits-decrement-path: /api/v1/credits/get-and-decrement
 
 gateway:
   deployable-mcp-servers:
@@ -38,7 +40,7 @@ spring:
         provider:
           cdc-oauth2-client:
             authorization-uri: http://localhost:9999/oauth2/authorize
-            token-uri:         http://localhost:9999/oauth2/token
-            user-info-uri:     http://localhost:9999/userinfo
+            token-uri: http://localhost:9999/oauth2/token
+            user-info-uri: http://localhost:9999/userinfo
             user-name-attribute: sub
-            jwk-set-uri:       http://localhost:9999/oauth2/jwks
+            jwk-set-uri: http://localhost:9999/oauth2/jwks

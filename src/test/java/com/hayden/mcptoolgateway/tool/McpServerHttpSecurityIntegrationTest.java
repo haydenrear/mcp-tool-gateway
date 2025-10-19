@@ -79,6 +79,7 @@ class McpServerHttpSecurityIntegrationTest {
     private static void setMocks() {
         configureFor("localhost", 9999);
         stubFor(get(urlEqualTo("/api/v1/credits/get")).willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("{\"hasCredits\":true,\"remaining\":5}")));
+        stubFor(post(urlEqualTo("/api/v1/credits/get-and-decrement")).willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("{\"hasCredits\":true,\"remaining\":4,\"consumed\":1}")));
         log.info("WireMock server started on port {}", wireMockServer.port());
     }
 
