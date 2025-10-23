@@ -103,6 +103,13 @@ if (enableDocker && buildMcpToolGateway) {
             })
         }
     }
+
+    tasks.register("mcpToolGatewayTask") {
+        dependsOn("buildDocker")
+    }
+} else {
+    tasks.register("mcpToolGatewayTask") {
+    }
 }
 
 tasks.compileJava {
