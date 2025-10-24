@@ -45,9 +45,13 @@ spring:
     driver-class-name: org.postgresql.Driver
     username: postgres
     password: postgres
-    jdbc-url: jdbc:postgresql://localhost:5405/postgres
-    url: jdbc:postgresql://localhost:5405/postgres
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DATABASE:postgres}
+    jdbc-url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DATABASE:postgres}
     hikari:
+      username: postgres
+      password: postgres
+      jdbc-url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DATABASE:postgres}
+      driver-class-name: org.postgresql.Driver
       connection-timeout: 960000
   liquibase:
     enabled: false
@@ -99,12 +103,6 @@ spring:
             jwk-set-uri:       http://localhost:8080/oauth2/jwks
 
 keystore:
-  key-path: {{PROJ_DIR}}/keys
+  key-path: ${KEY_PATH:{{PROJ_DIR}}/keys}
   key-name: cdc-key
 
-
-
-logging.level.org.springframework.web.servlet: DEBUG
-logging.level.org.springframework.web.server: DEBUG
-logging.level.org.springframework.boot.web.servlet: DEBUG
-logging.level.org.springframework.boot.web.server: DEBUG

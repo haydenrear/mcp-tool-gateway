@@ -75,7 +75,7 @@ public class ToolGatewayConfigProperties {
 
     boolean startMcpServerOnInitialize=true;
 
-    Path killScript;
+    String killScript;
 
     boolean enableRedeployable = true;
 
@@ -88,14 +88,7 @@ public class ToolGatewayConfigProperties {
     private @NotNull Boolean hasServerExisting(String mcpStdioServersJsonLocation1) {
 
         return Optional.ofNullable(mcpStdioServersJsonLocation1)
-                .map(s -> {
-                    try {
-                        return resolver.getResource(s).getFile().exists();
-                    } catch (IOException e) {
-                        log.error("Could not find resource {} with {}", s, e.getMessage(), e);
-                        return false;
-                    }
-                })
+                .map(s -> resolver.getResource(s).exists())
                 .orElse(false);
     }
 

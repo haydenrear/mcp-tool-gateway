@@ -52,8 +52,6 @@ public class K3sService {
     @Autowired
     private UserMetadataRepository userMetadataRepository;
     @Autowired
-    private AuthResolver authResolver;
-    @Autowired
     private HelmDeployer helmDeployer;
     @Autowired
     private HelmProperties helmProperties;

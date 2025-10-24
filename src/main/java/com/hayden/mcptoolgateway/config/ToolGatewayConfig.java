@@ -46,7 +46,7 @@ public class ToolGatewayConfig {
                 return new HashMap<>();
             Map<String, Map<String, McpSseClientProperties.SseParameters>> stdioConnection = new ObjectMapper().readValue(
                     new PathMatchingResourcePatternResolver().getResource(toolGatewayConfigProperties.mcpHttpServersJsonLocation)
-                            .getFile(),
+                            .getContentAsByteArray(),
                     new TypeReference<>() {});
 
             var remove = Optional.ofNullable(stdioConnection.remove("mcpServers"))
@@ -75,7 +75,7 @@ public class ToolGatewayConfig {
                 return new HashMap<>();
             Map<String, Map<String, McpStdioClientProperties.Parameters>> stdioConnection = new ObjectMapper().readValue(
                     new PathMatchingResourcePatternResolver().getResource(toolGatewayConfigProperties.mcpStdioServersJsonLocation)
-                            .getFile(),
+                            .getContentAsByteArray(),
                     new TypeReference<>() {});
 
             Map<String, McpStdioClientProperties.Parameters> remove = Optional.ofNullable(stdioConnection.remove("mcpServers"))
@@ -144,6 +144,7 @@ public class ToolGatewayConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(value = "gateway.enable-redeployable", havingValue = "true", matchIfMissing = true)
     public CommandLineRunner initializeCodeExecutions(ToolGatewayConfigProperties props,
                                                       RedeployFunction graphqlRedeploy) {
         StreamUtil.toStream(props.deployableMcpServers.values())

@@ -23,8 +23,6 @@ public class KubernetesFilter extends OncePerRequestFilter {
 
     private final K3sService deployment;
 
-    private final UserMetadataRepository userMetadataRepository;
-
     private final AuthResolver authResolver;
 
     @Override
