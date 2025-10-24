@@ -23,6 +23,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.security.KeyPair;
 import java.security.interfaces.RSAPrivateKey;
@@ -35,13 +37,19 @@ import java.util.UUID;
         CreditVerificationFilter.class, AuthorizationServerConfigProps.class})
 public class ResourceServerConfig {
 
+
     @Bean
     SecurityFilterChain resourceServerSecurityConf(HttpSecurity http, KubernetesFilter kubernetesFilter, CreditVerificationFilter creditVerificationFilter) throws Exception {
         var b= http
                 .oauth2ResourceServer(res -> res.jwt(Customizer.withDefaults()))
                 .addFilterAfter(creditVerificationFilter, BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(kubernetesFilter, CreditVerificationFilter.class)
-                .authorizeHttpRequests(authorizeRequests -> authorizeRequests.anyRequest().authenticated())
+                .authorizeHttpRequests(authorizeRequests -> authorizeRequests
+                        .requestMatchers("/actuator/health")
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated()
+                )
                 .csrf(CsrfConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .build();

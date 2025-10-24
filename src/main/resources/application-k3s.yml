@@ -1,3 +1,4 @@
+server.port: 8080
 authorization-server:
   base-uri: http://cdc-commit-diff-context-authorization:8080
 
@@ -22,8 +23,6 @@ gateway:
   mcp-stdio-servers-json-location: classpath:/stdio-mcp-servers/servers-empty.json
   mcp-http-servers-json-location: classpath:/stdio-mcp-servers/servers-empty.json
   enable-redeployable: false
-
-server.port: 8081
 
 
 otel:

@@ -15,6 +15,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Optional;
 
+import static com.hayden.commitdiffcontext.cdc_config.AuthorizationServerConfigProps.UNRESTRICTED;
+
 @Component
 @RequiredArgsConstructor
 public class KubernetesFilter extends OncePerRequestFilter {
@@ -29,6 +31,10 @@ public class KubernetesFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NotNull HttpServletRequest request,
                                     @NotNull HttpServletResponse response,
                                     @NotNull FilterChain filterChain) throws ServletException, IOException {
+        if (UNRESTRICTED.matches(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         var user = authResolver.resolveUserName();
 
