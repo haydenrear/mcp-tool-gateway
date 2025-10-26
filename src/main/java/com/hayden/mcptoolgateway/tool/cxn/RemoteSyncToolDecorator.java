@@ -1,9 +1,10 @@
-package com.hayden.mcptoolgateway.tool;
+package com.hayden.mcptoolgateway.tool.cxn;
 
+import com.hayden.mcptoolgateway.tool.ToolDecorator;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ClientSyncToolDecorator implements ToolDecorator {
+public class RemoteSyncToolDecorator implements ToolDecorator {
     @Override
     public ToolDecoratorToolStateUpdate decorate(ToolDecoratorState newMcpServerState) {
         return null;
