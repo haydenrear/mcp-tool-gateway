@@ -10,7 +10,6 @@ import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import io.micrometer.common.util.StringUtils;
-import io.modelcontextprotocol.client.McpAsyncClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -22,7 +21,6 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -44,7 +42,7 @@ public class RedeployToolDecorator implements ToolDecorator {
         if (newMcpServerState.newMcpServerState().values().stream().anyMatch(c -> !CollectionUtils.isEmpty(c.added())))  {
             throw new RuntimeException("Attempted to do redeploy with tool state deployed with multiple replicas. Not allowed.");
         }
-        return new ToolDecoratorToolStateUpdate.AddToolStateUpdate(RedeployFunction.REDEPLOY_MCP_SERVER, getRedeploy(newMcpServerState.newMcpServerState()));
+        return new ToolDecoratorToolStateUpdate.AddToolToolStateUpdate(RedeployFunction.REDEPLOY_MCP_SERVER, getRedeploy(newMcpServerState.newMcpServerState()));
     }
 
     public ToolDecoratorToolStateUpdate decorate(Map<String, ToolDecoratorService.McpServerToolState> newMcpServerState) {

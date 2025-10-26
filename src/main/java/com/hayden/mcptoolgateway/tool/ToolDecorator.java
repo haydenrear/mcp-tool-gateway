@@ -13,23 +13,39 @@ public interface ToolDecorator {
 
         record AddTool(McpServerFeatures.SyncToolSpecification toAddTools)  implements McpServerToolStateChange {}
 
+        record AddCallbacks(String name,
+                            List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback,
+                            List<ToolDecoratorService.AfterToolCallback> afterToolCallback)
+                implements McpServerToolStateChange {}
+
     }
 
-    sealed interface  ToolDecoratorToolStateUpdate {
+    sealed interface ToolDecoratorToolStateUpdate {
 
         ToolDecoratorService.McpServerToolState toolStates();
 
+        String name();
+
         List<McpServerToolStateChange> toolStateChanges();
 
-
-
-        record AddToolStateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates,
-                                  List<McpServerToolStateChange> toolStateChanges) implements ToolDecoratorToolStateUpdate {
-            public AddToolStateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates) {
+        record AddToolToolStateUpdate(String name,
+                                      ToolDecoratorService.McpServerToolState toolStates,
+                                      List<McpServerToolStateChange> toolStateChanges) implements ToolDecoratorToolStateUpdate {
+            public AddToolToolStateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates) {
                 this(name, toolStates, List.of());
             }
         }
 
+        record AddCallbacksToToolState(
+                String name,
+                ToolDecoratorService.McpServerToolState toolStates,
+                List<ToolDecoratorService.BeforeToolCallback> before,
+                List<ToolDecoratorService.AfterToolCallback> after) implements ToolDecoratorToolStateUpdate {
+            @Override
+            public List<McpServerToolStateChange> toolStateChanges() {
+                return List.of(new McpServerToolStateChange.AddCallbacks(name, before, after));
+            }
+        }
 
     }
 
@@ -37,13 +53,22 @@ public interface ToolDecorator {
                               List<McpServerToolStateChange> stateChanges) {
         public ToolDecoratorState update(ToolDecoratorToolStateUpdate update) {
             switch (update) {
-                case ToolDecoratorToolStateUpdate.AddToolStateUpdate(
+                case ToolDecoratorToolStateUpdate.AddToolToolStateUpdate(
                         String name,
                         ToolDecoratorService.McpServerToolState toolStates,
                         List<McpServerToolStateChange> toolStateChanges
                 ) -> {
+                    if (this.newMcpServerState.containsKey(name)) {
+                        throw new IllegalArgumentException("Already contained.");
+                    }
                     this.newMcpServerState.put(name, toolStates);
                     stateChanges.addAll(toolStateChanges);
+                }
+                case ToolDecoratorToolStateUpdate.AddCallbacksToToolState addBeforeAfterToolCallbacks -> {
+                    if (!this.newMcpServerState.containsKey(addBeforeAfterToolCallbacks.name)) {
+                        throw new IllegalArgumentException("Already contained.");
+                    }
+                    stateChanges.addAll(addBeforeAfterToolCallbacks.toolStateChanges());
                 }
             }
 

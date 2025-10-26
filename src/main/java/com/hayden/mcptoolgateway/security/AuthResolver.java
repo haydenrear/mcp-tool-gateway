@@ -16,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.*;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -84,6 +85,12 @@ public class AuthResolver {
                 .orElse(ToolDecoratorService.SYSTEM_ID);
     }
 
+    public Optional<Jwt> resolveJwt() {
+        var bearer = toBearer(
+                SecurityContextHolder.getContext() != null ? SecurityContextHolder.getContext().getAuthentication() : null);
+        return Optional.ofNullable(bearer)
+                .flatMap(s -> Optional.ofNullable(jwtDecoder.decode(s)));
+    }
 
     public Optional<String> resolveUserName() {
         // Works when called inside a reactive chain (RouterFunction handlers etc.)

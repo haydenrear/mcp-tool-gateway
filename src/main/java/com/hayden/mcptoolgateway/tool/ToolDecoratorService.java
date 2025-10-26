@@ -6,13 +6,14 @@ import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.free.Free;
 import io.modelcontextprotocol.client.transport.AuthAwareHttpSseClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
+import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -29,14 +30,24 @@ public class ToolDecoratorService {
     @Builder(toBuilder = true)
     public record CreateToolCallbackProviderResult(ToolCallbackProvider provider, McpSchema.Tool toolName, Exception e) { }
 
-    public record ToolCallbackDescriptor(ToolCallbackProvider provider, ToolCallback toolCallback) {}
+    public record ToolCallbackDescriptor(ToolCallbackProvider provider, org.springframework.ai.tool.ToolCallback toolCallback) {}
+
+    public interface BeforeToolCallback {
+        void on(McpSchema.CallToolRequest callToolRequest, @Nullable Jwt id);
+    }
+
+    public interface AfterToolCallback {
+        void on(McpSchema.CallToolRequest callToolRequest, McpSchema.CallToolResult result, @Nullable Jwt id);
+    }
 
     @Builder(toBuilder = true)
     public record McpServerToolState(
             List<ToolCallbackProvider> toolCallbackProviders,
             ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor lastDeploy,
             ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer,
-            List<AddClient> added) { }
+            List<AddClient> added,
+            List<BeforeToolCallback> beforeToolCallback,
+            List<AfterToolCallback> afterToolCallback) { }
 
     @Autowired
     ToolGatewayConfigProperties toolGatewayConfigProperties;
@@ -117,7 +128,7 @@ public class ToolDecoratorService {
                                     Map.entry(
                                             d.getKey(),
                                             new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
-                                                    new ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate(d.getKey(), s.toolState(), s.getToolStateChanges()))));
+                                                    new ToolDecorator.ToolDecoratorToolStateUpdate.AddToolToolStateUpdate(d.getKey(), s.toolState(), s.getToolStateChanges()))));
                         } else {
                             log.error("Found unknown tool decorator result {}", toolDecoratorResult);
                         }

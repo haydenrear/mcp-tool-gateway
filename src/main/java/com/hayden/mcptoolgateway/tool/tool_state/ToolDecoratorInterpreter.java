@@ -274,7 +274,8 @@ public class ToolDecoratorInterpreter
 //                TODO: tool decorators should be effectful also
                 yield this.toolStates.doOverWriteState(() -> {
 
-                    record StateUpdate(String name, ToolDecoratorService.McpServerToolState toolStates,
+                    record StateUpdate(String name,
+                                       ToolDecoratorService.McpServerToolState toolStates,
                                        List<ToolDecorator.McpServerToolStateChange> toolStateChanges) {}
 
                     var toDecorate = addMcpServerToolState.stateUpdate
@@ -283,8 +284,14 @@ public class ToolDecoratorInterpreter
                                     .map(e -> {
                                         ToolDecorator.ToolDecoratorToolStateUpdate stateUpdate = e.getValue().stateUpdate;
                                         switch(stateUpdate) {
-                                            case ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate addToolStateUpdate -> {
+                                            case ToolDecorator.ToolDecoratorToolStateUpdate.AddToolToolStateUpdate addToolStateUpdate -> {
                                                 return new StateUpdate(addToolStateUpdate.name(), addToolStateUpdate.toolStates(), addToolStateUpdate.toolStateChanges());
+                                            }
+                                            case ToolDecorator.ToolDecoratorToolStateUpdate.AddCallbacksToToolState addBeforeAfterToolCallbacks -> {
+                                                return new StateUpdate(
+                                                        addBeforeAfterToolCallbacks.name(),
+                                                        addBeforeAfterToolCallbacks.toolStates(),
+                                                        addBeforeAfterToolCallbacks.toolStateChanges());
                                             }
                                         }
                                     })

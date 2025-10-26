@@ -13,14 +13,13 @@ import com.hayden.mcptoolgateway.security.AuthResolver;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ReflectionUtils;
@@ -126,7 +125,7 @@ class SetClients {
                 .flatMap(sc -> Free
                         .<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult>liftF(
                                 new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
-                                        new ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate(deployService, mcpServerToolState, sc.getToolStateChanges())))
+                                        new ToolDecorator.ToolDecoratorToolStateUpdate.AddToolToolStateUpdate(deployService, mcpServerToolState, sc.getToolStateChanges())))
                         .flatMap(s -> Free.pure(sc)));
     }
 
@@ -235,7 +234,9 @@ class SetClients {
         }
     }
 
-    DelegateMcpClient doSetMcpClient(McpSyncClient m, McpServerToolStates.DeployedService deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
+    DelegateMcpClient doSetMcpClient(McpSyncClient m,
+                                     McpServerToolStates.DeployedService deployService,
+                                     ToolDecoratorService.McpServerToolState mcpServerToolState) {
         var mcpClient = this.syncClients.compute(deployService.deployService(), (key, prev) -> {
             if (prev == null) {
                 prev = this.delegateMcpClientFactory.clientFactory(mcpServerToolState);
@@ -267,6 +268,8 @@ class SetClients {
 
         void setClient(McpSyncClient client);
 
+        void clearError();
+
         void setError(String error);
 
         McpSyncClient client();
@@ -290,9 +293,12 @@ class SetClients {
         private final Map<String, SingleDelegateMcpClient> clients = new ConcurrentHashMap<>();
 
         private AuthResolver authResolver;
+        private final ToolDecoratorService.McpServerToolState toolState;
 
-        public MultipleClientDelegateMcpClient(AuthResolver authResolver) {
+        public MultipleClientDelegateMcpClient(AuthResolver authResolver,
+                                               ToolDecoratorService.McpServerToolState toolState) {
             this.authResolver = authResolver;
+            this.toolState = toolState;
         }
 
         @Override
@@ -312,11 +318,20 @@ class SetClients {
             var resolved = authResolver.resolveUserOrDefault();
             this.clients.compute(resolved, (key, prev) -> {
                 if (prev == null) {
-                    prev = new SingleDelegateMcpClient();
+                    prev = DelegateMcpClientFactory.getSingleDelegateMcpClient(this.toolState, authResolver);
                 }
 
                 prev.setClient(client);
-                prev.setError(null);
+                prev.clearError();
+                return prev;
+            });
+        }
+
+        @Override
+        public void clearError() {
+            String s = authResolver.resolveUserOrDefault();
+            this.clients.computeIfPresent(s, (key, prev) -> {
+                prev.clearError();
                 return prev;
             });
         }
@@ -326,7 +341,7 @@ class SetClients {
             String s = authResolver.resolveUserOrDefault();
             this.clients.compute(s, (key, prev) -> {
                 if (prev == null) {
-                    prev = new SingleDelegateMcpClient();
+                    prev = DelegateMcpClientFactory.getSingleDelegateMcpClient(this.toolState, authResolver);
                 }
 
                 prev.setClient(null);
@@ -361,8 +376,6 @@ class SetClients {
     }
 
     @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
     public static class SingleDelegateMcpClient implements DelegateMcpClient {
 
         private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -372,6 +385,21 @@ class SetClients {
         McpSyncClient client;
 
         boolean isStdio;
+
+        AuthResolver authResolver;
+
+        List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback;
+
+        List<ToolDecoratorService.AfterToolCallback> afterToolCallback;
+
+        public SingleDelegateMcpClient(List<ToolDecoratorService.AfterToolCallback> afterToolCallback,
+                                       List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback,
+                                       AuthResolver authResolver) {
+            this.afterToolCallback = afterToolCallback;
+            this.beforeToolCallback = beforeToolCallback;
+            this.authResolver = authResolver;
+        }
+
 
         /**
          * TODO: last error to return - or last error log file
@@ -419,7 +447,22 @@ class SetClients {
                     callToolRequest.arguments().put(ToolDecoratorService.AUTH_BODY_FIELD, resolved);
                 }
 
+                Optional<Jwt> jwt = Optional.empty();
+
+                if (!CollectionUtils.isEmpty(beforeToolCallback)
+                    || !CollectionUtils.isEmpty(afterToolCallback)) {
+                    jwt = authResolver.resolveJwt();
+                }
+
+                for (var beforeToolCallback : beforeToolCallback) {
+                    beforeToolCallback.on(callToolRequest, jwt.orElse(null));
+                }
+
                 var called = client.callTool(callToolRequest);
+
+                for (var after : afterToolCallback) {
+                    after.on(callToolRequest, called, jwt.orElse(null));
+                }
 
                 return called;
             } finally {
@@ -438,6 +481,17 @@ class SetClients {
                 this.client = client;
                 this.error = null;
                 this.isStdio = client == null || isStdio(client);
+            } finally {
+                lastAccessed = Instant.now();
+                this.readWriteLock.writeLock().unlock();
+            }
+        }
+
+        @Override
+        public void clearError() {
+            try {
+                this.readWriteLock.writeLock().lock();
+                this.error = null;
             } finally {
                 lastAccessed = Instant.now();
                 this.readWriteLock.writeLock().unlock();

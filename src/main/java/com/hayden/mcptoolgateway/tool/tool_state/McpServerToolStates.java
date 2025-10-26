@@ -168,11 +168,7 @@ public class McpServerToolStates {
     }
 
     public void addUpdateToolState(ToolDecorator.ToolDecoratorToolStateUpdate toolDecoratorToolStateUpdate) {
-        switch(toolDecoratorToolStateUpdate) {
-            case ToolDecorator.ToolDecoratorToolStateUpdate.AddToolStateUpdate addToolStateUpdate -> {
-                this.addUpdateToolState(addToolStateUpdate.name(), toolDecoratorToolStateUpdate.toolStates());
-            }
-        }
+        this.addUpdateToolState(toolDecoratorToolStateUpdate.name(), toolDecoratorToolStateUpdate.toolStates());
     }
 
     public void executeToolStateChanges(List<ToolDecorator.McpServerToolStateChange> mcpServerToolStateChanges) {
@@ -183,6 +179,13 @@ public class McpServerToolStates {
                                 this.syncServerDelegate.addTool(addTool.toAddTools());
                         case ToolDecorator.McpServerToolStateChange.RemoveTool removeTool ->
                                 this.syncServerDelegate.removeTool(removeTool.toRemove());
+                        case ToolDecorator.McpServerToolStateChange.AddCallbacks(
+                                String name,
+                                List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback,
+                                List<ToolDecoratorService.AfterToolCallback> afterToolCallback
+                        ) -> {
+                            this.setClients.syncClients.get(name);
+                        }
                     }
                 });
     }
