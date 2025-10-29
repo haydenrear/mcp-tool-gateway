@@ -2,7 +2,8 @@ package io.modelcontextprotocol.client.transport;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.mcptoolgateway.security.AuthResolver;
+import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
+import com.hayden.mcptoolgateway.security.IdentityResolver;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -99,24 +100,28 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
      */
     private final HttpRequest.Builder requestBuilder;
 
+    private final ToolGatewayConfigProperties.DecoratedMcpServer toolGatewayConfigProperties;
+
     @Setter
-    private AuthResolver resolver;
+    private IdentityResolver resolver;
 
-    public AuthAwareHttpSseClientTransport(String baseUri) {
-        this(HttpClient.newBuilder(), baseUri, new ObjectMapper());
+    public AuthAwareHttpSseClientTransport(String baseUri, ToolGatewayConfigProperties.DecoratedMcpServer toolGatewayConfigProperties) {
+        this(HttpClient.newBuilder(), baseUri, new ObjectMapper(), toolGatewayConfigProperties);
     }
 
-    public AuthAwareHttpSseClientTransport(HttpClient.Builder clientBuilder, String baseUri, ObjectMapper objectMapper) {
-        this(clientBuilder, baseUri, DEFAULT_SSE_ENDPOINT, objectMapper);
+    public AuthAwareHttpSseClientTransport(HttpClient.Builder clientBuilder, String baseUri, ObjectMapper objectMapper, ToolGatewayConfigProperties.DecoratedMcpServer toolGatewayConfigProperties) {
+        this(clientBuilder, baseUri, DEFAULT_SSE_ENDPOINT, objectMapper, toolGatewayConfigProperties);
     }
 
-    public AuthAwareHttpSseClientTransport(HttpClient.Builder clientBuilder, String baseUri, String sseEndpoint, ObjectMapper objectMapper) {
-        this(clientBuilder, HttpRequest.newBuilder(), baseUri, sseEndpoint, objectMapper);
+    public AuthAwareHttpSseClientTransport(HttpClient.Builder clientBuilder, String baseUri, String sseEndpoint, ObjectMapper objectMapper,
+                                           ToolGatewayConfigProperties.DecoratedMcpServer toolGatewayConfigProperties) {
+        this(clientBuilder, HttpRequest.newBuilder(), baseUri, sseEndpoint, objectMapper, toolGatewayConfigProperties);
     }
 
-    public AuthAwareHttpSseClientTransport(HttpClient.Builder clientBuilder, HttpRequest.Builder requestBuilder, String baseUri, String sseEndpoint, ObjectMapper objectMapper) {
+    public AuthAwareHttpSseClientTransport(HttpClient.Builder clientBuilder, HttpRequest.Builder requestBuilder, String baseUri,
+                                           String sseEndpoint, ObjectMapper objectMapper, ToolGatewayConfigProperties.DecoratedMcpServer toolGatewayConfigProperties) {
         this(clientBuilder.connectTimeout(Duration.ofSeconds(10)).build(), requestBuilder, baseUri, sseEndpoint,
-                objectMapper);
+                objectMapper, toolGatewayConfigProperties);
     }
 
     public HttpRequest.Builder newRequestBuilder() {
@@ -135,7 +140,8 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
      * @throws IllegalArgumentException if objectMapper, clientBuilder, or headers is null
      */
     AuthAwareHttpSseClientTransport(HttpClient httpClient, HttpRequest.Builder requestBuilder, String baseUri,
-                                    String sseEndpoint, ObjectMapper objectMapper) {
+                                    String sseEndpoint, ObjectMapper objectMapper,
+                                    ToolGatewayConfigProperties.DecoratedMcpServer toolGatewayConfigProperties) {
         super(httpClient, requestBuilder, baseUri, sseEndpoint, objectMapper);
         Assert.notNull(objectMapper, "ObjectMapper must not be null");
         Assert.hasText(baseUri, "baseUri must not be empty");
@@ -147,6 +153,7 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
         this.objectMapper = objectMapper;
         this.httpClient = httpClient;
         this.requestBuilder = requestBuilder;
+        this.toolGatewayConfigProperties = toolGatewayConfigProperties;
 
         this.sseClient = new AuthEnabledFlowSseClient(this.httpClient, requestBuilder);
     }
@@ -163,7 +170,7 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
 
 
     private Mono<String> clientCredentialsBearer() {
-        return this.resolver.clientCredentialsBearer();
+        return this.resolver.s2sIdentity(this.toolGatewayConfigProperties);
     }
 
     /**
@@ -295,7 +302,7 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
     private HttpRequest parseMessageRequest(McpSchema.JSONRPCMessage message, URI requestUri) throws IOException {
         HttpRequest request;
         if (message instanceof McpSchema.JSONRPCRequest req) {
-            var stripped = AuthResolver.serializeStrippingBearer(req, objectMapper);
+            var stripped = IdentityResolver.serializeStrippingBearer(req, objectMapper);
 
             HttpRequest.Builder requestBuilder = newRequestBuilder().uri(requestUri);
 
@@ -359,7 +366,8 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
                 .connectTimeout(Duration.ofSeconds(10));
 
         private ObjectMapper objectMapper = new ObjectMapper();
-        private AuthResolver authResolver;
+        private IdentityResolver authResolver;
+        private ToolGatewayConfigProperties.DecoratedMcpServer configProperties;
 
         private HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .header("Content-Type", "application/json");
@@ -406,6 +414,11 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
         public AuthAwareHttpSseClientTransport.Builder sseEndpoint(String sseEndpoint) {
             Assert.hasText(sseEndpoint, "sseEndpoint must not be empty");
             this.sseEndpoint = sseEndpoint;
+            return this;
+        }
+
+        public AuthAwareHttpSseClientTransport.Builder configProperties(ToolGatewayConfigProperties.DecoratedMcpServer configProperties) {
+            this.configProperties = configProperties;
             return this;
         }
 
@@ -469,7 +482,7 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
             return this;
         }
 
-        public AuthAwareHttpSseClientTransport.Builder authResolver(AuthResolver objectMapper) {
+        public AuthAwareHttpSseClientTransport.Builder authResolver(IdentityResolver objectMapper) {
             Assert.notNull(objectMapper, "objectMapper must not be null");
             this.authResolver = objectMapper;
             return this;
@@ -481,8 +494,7 @@ public class AuthAwareHttpSseClientTransport extends HttpClientSseClientTranspor
          * @return a new transport instance
          */
         public AuthAwareHttpSseClientTransport build() {
-            var t = new AuthAwareHttpSseClientTransport(clientBuilder.build(), requestBuilder, baseUri, sseEndpoint,
-                    objectMapper);
+            var t = new AuthAwareHttpSseClientTransport(clientBuilder.build(), requestBuilder, baseUri, sseEndpoint, objectMapper, this.configProperties);
             t.setResolver(this.authResolver);
             return t;
         }

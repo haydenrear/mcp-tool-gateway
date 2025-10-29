@@ -12,7 +12,7 @@ import java.nio.file.Files;
 public class TestUtil {
 
 
-    public static void writeToCopyTo(byte[] bytes, ToolGatewayConfigProperties.DeployableMcpServer testServer1) throws IOException {
+    public static void writeToCopyTo(byte[] bytes, ToolGatewayConfigProperties.DecoratedMcpServer testServer1) throws IOException {
         Files.write(testServer1.copyToArtifactPath().resolve(testServer1.getCopyFromArtifactPath().toFile().getName()), bytes);
     }
 }

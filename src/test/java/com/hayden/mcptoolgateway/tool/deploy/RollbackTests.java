@@ -58,7 +58,7 @@ public class RollbackTests {
     @Autowired
     private ToolGatewayConfigProperties toolGatewayConfigProperties;
 
-    private ToolGatewayConfigProperties.DeployableMcpServer testServer;
+    private ToolGatewayConfigProperties.DecoratedMcpServer testServer;
     @Autowired
     private McpServerToolStates mcpServerToolStates;
 
@@ -197,8 +197,8 @@ public class RollbackTests {
     void shouldHandleRedeployWithoutRollbackWhenBinaryNotExists() throws IOException {
         // Given
         Path nonExistentBinary = testServer.directory().resolve("non-existent.jar");
-        ToolGatewayConfigProperties.DeployableMcpServer serverWithoutBinary = 
-                new ToolGatewayConfigProperties.DeployableMcpServer(
+        ToolGatewayConfigProperties.DecoratedMcpServer serverWithoutBinary =
+                new ToolGatewayConfigProperties.DecoratedMcpServer(
                         "test-rollback-server",
                         "echo 'deploy'",
                         testServer.directory(),

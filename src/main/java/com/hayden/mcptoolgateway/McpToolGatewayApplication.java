@@ -20,12 +20,11 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 @SpringBootApplication(exclude = { McpClientAutoConfiguration.class })
 public class McpToolGatewayApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(McpToolGatewayApplication.class, args);
-//        SpringApplicationBuilder springApplicationBuilder = new SpringApplicationBuilder(McpToolGatewayApplication.class);
-//        springApplicationBuilder
-//                .initializers(new KillCdcInitializer())
-//                .run(args);
+    static void main(String[] args) {
+        SpringApplicationBuilder springApplicationBuilder = new SpringApplicationBuilder(McpToolGatewayApplication.class);
+        springApplicationBuilder
+                .initializers(new KillCdcInitializer())
+                .run(args);
     }
 
 }

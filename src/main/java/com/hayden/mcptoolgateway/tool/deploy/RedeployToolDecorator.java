@@ -127,7 +127,7 @@ public class RedeployToolDecorator implements ToolDecorator {
                                 log.error("MCP server name {} was not contained in options {}.",
                                         i.deployService(), toolGatewayConfigProperties.getDeployableMcpServers().keySet());
                                 if (toolGatewayConfigProperties.getDeployableMcpServers().size() == 1) {
-                                    ToolGatewayConfigProperties.DeployableMcpServer toRedeploy = toolGatewayConfigProperties.getDeployableMcpServers()
+                                    ToolGatewayConfigProperties.DecoratedMcpServer toRedeploy = toolGatewayConfigProperties.getDeployableMcpServers()
                                             .entrySet().stream()
                                             .findFirst().orElseThrow()
                                             .getValue();
@@ -181,7 +181,7 @@ public class RedeployToolDecorator implements ToolDecorator {
     }
 
     DeployModels.RedeployResult doRedeploy(ToolModels.Redeploy i,
-                                           ToolGatewayConfigProperties.DeployableMcpServer toRedeploy) {
+                                           ToolGatewayConfigProperties.DecoratedMcpServer toRedeploy) {
         if (!toolGatewayConfigProperties.getDeployableMcpServers().containsKey(i.deployService())) {
             return DeployModels.RedeployResult.builder()
                     .deployErr("%s was not contained in set of deployable MCP servers %s - please update."

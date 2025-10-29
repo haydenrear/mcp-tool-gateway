@@ -11,8 +11,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.hayden.mcptoolgateway.TestUtils.stubToken;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AuthResolverTest {
 
     @Autowired
-    AuthResolver authResolver;
+    OAuth2AuthorizationServerResolver OAuth2AuthorizationServerResolver;
 
     private static final WireMockServer wireMockServer = new WireMockServer(9999);
 
@@ -55,7 +53,7 @@ class AuthResolverTest {
 
     @Test
     void testResolve() {
-        var client = authResolver.clientCredentialsBearer()
+        var client = OAuth2AuthorizationServerResolver.clientCredentialsBearer()
                 .block();
 
         assertThat(client).isNotNull();

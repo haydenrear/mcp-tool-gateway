@@ -1,6 +1,6 @@
 package com.hayden.mcptoolgateway.tool.tool_state;
 
-import com.hayden.mcptoolgateway.security.AuthResolver;
+import com.hayden.mcptoolgateway.security.IdentityResolver;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.utilitymodule.stream.StreamUtil;
 import lombok.RequiredArgsConstructor;
@@ -15,26 +15,27 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DelegateMcpClientFactory {
 
-    private final AuthResolver authResolver;
+    private final IdentityResolver identityResolver;
 
     public SetClients.DelegateMcpClient clientFactory(ToolDecoratorService.McpServerToolState toolState) {
         if (toolState == null) {
-            return getSingleDelegateMcpClient(toolState, authResolver);
+            return getSingleDelegateMcpClient(toolState, identityResolver);
         }
         if (toolState.deployableMcpServer().isHasMany())
-            return new SetClients.MultipleClientDelegateMcpClient(authResolver, toolState);
+            return new SetClients.MultipleClientDelegateMcpClient(identityResolver, toolState);
         else
-            return getSingleDelegateMcpClient(toolState, authResolver);
+            return getSingleDelegateMcpClient(toolState, identityResolver);
     }
 
     public static SetClients.SingleDelegateMcpClient getSingleDelegateMcpClient(ToolDecoratorService.McpServerToolState toolState,
-                                                                                AuthResolver resolver) {
+                                                                                IdentityResolver resolver) {
         var s = new SetClients.SingleDelegateMcpClient(
                 StreamUtil.toStream(toolState.afterToolCallback())
                         .collect(Collectors.toCollection(ArrayList::new)),
                 StreamUtil.toStream(toolState.beforeToolCallback())
                         .collect(Collectors.toCollection(ArrayList::new)),
-                resolver);
+                resolver,
+                toolState);
         return s;
     }
 

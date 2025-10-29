@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "commit-diff-context-mcp": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "{{PROJ_DIR}}/ctx_bin/commit-diff-context-mcp.jar"
+      ],
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "stdio",
+        "DID_INDEX": "false"
+      }
+    }
+  }
+}

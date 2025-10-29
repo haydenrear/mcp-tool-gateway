@@ -52,7 +52,7 @@ class RedeployTest {
     @Autowired
     private ToolGatewayConfigProperties toolGatewayConfigProperties;
 
-    private ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer;
+    private ToolGatewayConfigProperties.DecoratedMcpServer deployableMcpServer;
     private ToolDecoratorService.McpServerToolState toolState;
     private ToolModels.Redeploy redeployRequest;
 
@@ -166,8 +166,8 @@ class RedeployTest {
     void shouldHandleFailedRedeployWithoutRollbackWhenBinaryDoesNotExist() {
         // Given - Use a non-existent copyToArtifactPath path
         Path nonExistentBinary = deployableMcpServer.directory().resolve("non-existent.jar");
-        ToolGatewayConfigProperties.DeployableMcpServer serverWithoutBinary =
-                ToolGatewayConfigProperties.DeployableMcpServer.builder().name(
+        ToolGatewayConfigProperties.DecoratedMcpServer serverWithoutBinary =
+                ToolGatewayConfigProperties.DecoratedMcpServer.builder().name(
                                 "test-rollback-server")
                         .command(
                                 "echo 'deploy'").directory(

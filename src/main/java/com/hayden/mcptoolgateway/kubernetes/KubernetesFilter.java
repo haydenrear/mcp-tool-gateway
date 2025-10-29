@@ -1,8 +1,9 @@
 package com.hayden.mcptoolgateway.kubernetes;
 
+import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
+import com.hayden.mcptoolgateway.security.IdentityResolver;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
-import com.hayden.mcptoolgateway.security.AuthResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,7 +26,9 @@ public class KubernetesFilter extends OncePerRequestFilter {
 
     private final K3sService deployment;
 
-    private final AuthResolver authResolver;
+    private final IdentityResolver identityResolver;
+
+    private final ToolGatewayConfigProperties configProperties;
 
     @Override
     protected void doFilterInternal(@NotNull HttpServletRequest request,
@@ -36,7 +39,7 @@ public class KubernetesFilter extends OncePerRequestFilter {
             return;
         }
 
-        var user = authResolver.resolveUserName();
+        var user = identityResolver.resolveUserName((ToolGatewayConfigProperties.DecoratedMcpServer) null);
 
         if (user.isEmpty()) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized - no authentication found.");

@@ -8,7 +8,6 @@ import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.free.Free;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -30,7 +29,7 @@ public class RollbackFunction {
     }
 
     public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> rollback(ToolModels.Redeploy redeploy,
-                                                                                                                     ToolGatewayConfigProperties.DeployableMcpServer d,
+                                                                                                                     ToolGatewayConfigProperties.DecoratedMcpServer d,
                                                                                                                      ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor r,
                                                                                                                      ToolDecoratorService.McpServerToolState remove,
                                                                                                                      DeployModels.DeployState deployState) {
@@ -73,7 +72,7 @@ public class RollbackFunction {
 
     }
 
-    public ToolDecoratorInterpreter.ToolDecoratorResult.PrepareRollbackResult prepareRollback(ToolGatewayConfigProperties.DeployableMcpServer d) {
+    public ToolDecoratorInterpreter.ToolDecoratorResult.PrepareRollbackResult prepareRollback(ToolGatewayConfigProperties.DecoratedMcpServer d) {
         if (d.copyToArtifactPath().toFile().exists()) {
             try {
                 if (!Files.exists(toolGatewayConfigProperties.getArtifactCache())

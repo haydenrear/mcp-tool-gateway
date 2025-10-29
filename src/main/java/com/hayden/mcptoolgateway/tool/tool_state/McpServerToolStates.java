@@ -2,6 +2,7 @@ package com.hayden.mcptoolgateway.tool.tool_state;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.mcptoolgateway.security.IdentityResolver;
 import com.hayden.mcptoolgateway.tool.PassthroughFunctionToolCallback;
 import com.hayden.mcptoolgateway.tool.ToolDecorator;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
@@ -10,7 +11,6 @@ import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.free.Free;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.client.McpSyncClient;
-import com.hayden.mcptoolgateway.security.AuthResolver;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -45,7 +45,7 @@ public class McpServerToolStates {
 
     private final McpSyncServerDelegate syncServerDelegate;
 
-    private final AuthResolver authResolver;
+    private final IdentityResolver identityResolver;
 
     private final ObjectMapper objectMapper;
 
@@ -140,7 +140,7 @@ public class McpServerToolStates {
     @StripedLock
     public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult createSetClientErr(String service, DynamicMcpToolCallbackProvider.McpError m,
                                                                                                ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return createSetClientErr(setClients.getAuthDeployedService(service), m, mcpServerToolState);
+        return createSetClientErr(setClients.getAuthDeployedService(service, mcpServerToolState), m, mcpServerToolState);
     }
 
     @StripedLock

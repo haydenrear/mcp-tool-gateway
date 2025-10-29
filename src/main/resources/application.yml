@@ -9,33 +9,29 @@ authorization-server:
   credits-path: /api/v1/credits/get
   credits-decrement-path: /api/v1/credits/get-and-decrement
 
-otel:
-  instrumentation:
-    spring-web:
-      enabled: false
-    spring-webmvc:
-      enabled: false
-    spring-webflux:
-      enabled: false
-    jdbc:
-      enabled: false
-    kafka:
-      enabled: false
-    mongo:
-      enabled: false
+#otel:
+#  instrumentation:
+#    spring-web:
+#      enabled: false
+#    spring-webmvc:
+#      enabled: false
+#    spring-webflux:
+#      enabled: false
+#    jdbc:
+#      enabled: false
+#    kafka:
+#      enabled: false
+#    mongo:
+#      enabled: false
 management:
-  otlp:
-    metrics:
-      export:
-        enabled: false
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      probes:
-        enabled: true
+#  otlp:
+#    metrics:
+#      export:
+#        enabled: false
+#  endpoints:
+#    web:
+#      exposure:
+#        include: health,info
 
 
 graphql-props:
@@ -54,11 +50,10 @@ spring:
     username: postgres
     password: postgres
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5405}/${POSTGRES_DATABASE:postgres}
-    jdbc-url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5405}/${POSTGRES_DATABASE:postgres}
     hikari:
       username: postgres
       password: postgres
-      jdbc-url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5405}/${POSTGRES_DATABASE:postgres}
+#      jdbc-url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5405}/${POSTGRES_DATABASE:postgres}
       driver-class-name: org.postgresql.Driver
       connection-timeout: 960000
   liquibase:

@@ -1,6 +1,7 @@
 package com.hayden.mcptoolgateway.tool.tool_state;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hayden.mcptoolgateway.security.IdentityResolver;
 import com.hayden.mcptoolgateway.tool.ToolDecorator;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.utilitymodule.concurrent.striped.StripedLock;
@@ -9,7 +10,6 @@ import com.hayden.utilitymodule.free.Free;
 import io.micrometer.common.util.StringUtils;
 import io.modelcontextprotocol.client.McpAsyncClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import com.hayden.mcptoolgateway.security.AuthResolver;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -49,7 +49,7 @@ class SetClients {
     @Lazy
     ToolDecoratorInterpreter toolDecoratorInterpreter;
     @Autowired
-    AuthResolver authResolver;
+    IdentityResolver identityResolver;
 
     final Map<String, DelegateMcpClient> syncClients = new ConcurrentHashMap<>();
 
@@ -119,7 +119,7 @@ class SetClients {
     public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClientUpdateToolState(
             String deployService,
             ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        var d = new McpServerToolStates.DeployedService(deployService, authResolver.resolveUserOrDefault());
+        var d = new McpServerToolStates.DeployedService(deployService, identityResolver.resolveUserOrDefault(mcpServerToolState));
         return Free.<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult>
                         liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.BuildClient(d, mcpServerToolState, null))
                 .flatMap(sc -> Free
@@ -175,7 +175,7 @@ class SetClients {
     public ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult createSetClientErr(String service,
                                                                                                DynamicMcpToolCallbackProvider.McpError m,
                                                                                                ToolDecoratorService.McpServerToolState mcpServerToolState) {
-        return createSetClientErr(getAuthDeployedService(service), m, mcpServerToolState);
+        return createSetClientErr(getAuthDeployedService(service, mcpServerToolState), m, mcpServerToolState);
     }
 
     @StripedLock
@@ -253,8 +253,8 @@ class SetClients {
                 && !CollectionUtils.isEmpty(mcpServerToolState.toolCallbackProviders());
     }
 
-    public @NotNull McpServerToolStates.DeployedService getAuthDeployedService(String deployService) {
-        return new McpServerToolStates.DeployedService(deployService, authResolver.resolveUserOrDefault());
+    public McpServerToolStates.@NotNull DeployedService getAuthDeployedService(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
+        return new McpServerToolStates.DeployedService(deployService, identityResolver.resolveUserOrDefault(mcpServerToolState));
     }
 
 
@@ -292,33 +292,34 @@ class SetClients {
 
         private final Map<String, SingleDelegateMcpClient> clients = new ConcurrentHashMap<>();
 
-        private AuthResolver authResolver;
+        private IdentityResolver identityResolver;
+
         private final ToolDecoratorService.McpServerToolState toolState;
 
-        public MultipleClientDelegateMcpClient(AuthResolver authResolver,
+        public MultipleClientDelegateMcpClient(IdentityResolver identityResolver,
                                                ToolDecoratorService.McpServerToolState toolState) {
-            this.authResolver = authResolver;
+            this.identityResolver = identityResolver;
             this.toolState = toolState;
         }
 
         @Override
         public McpSchema.CallToolResult callTool(McpSchema.CallToolRequest callToolRequest) {
-            var resolved = authResolver.resolveUserOrDefault();
+            var resolved = identityResolver.resolveUserOrDefault(this.toolState);
             return clients.get(resolved).callTool(callToolRequest);
         }
 
         @Override
         public McpSchema.ListToolsResult listTools() {
-            var resolved = authResolver.resolveUserOrDefault();
+            var resolved = identityResolver.resolveUserOrDefault(this.toolState);
             return clients.get(resolved).listTools();
         }
 
         @Override
         public void setClient(McpSyncClient client) {
-            var resolved = authResolver.resolveUserOrDefault();
+            var resolved = identityResolver.resolveUserOrDefault(this.toolState);
             this.clients.compute(resolved, (key, prev) -> {
                 if (prev == null) {
-                    prev = DelegateMcpClientFactory.getSingleDelegateMcpClient(this.toolState, authResolver);
+                    prev = DelegateMcpClientFactory.getSingleDelegateMcpClient(this.toolState, identityResolver);
                 }
 
                 prev.setClient(client);
@@ -329,7 +330,7 @@ class SetClients {
 
         @Override
         public void clearError() {
-            String s = authResolver.resolveUserOrDefault();
+            String s = identityResolver.resolveUserOrDefault(this.toolState);
             this.clients.computeIfPresent(s, (key, prev) -> {
                 prev.clearError();
                 return prev;
@@ -338,10 +339,10 @@ class SetClients {
 
         @Override
         public void setError(String error) {
-            String s = authResolver.resolveUserOrDefault();
+            String s = identityResolver.resolveUserOrDefault(this.toolState);
             this.clients.compute(s, (key, prev) -> {
                 if (prev == null) {
-                    prev = DelegateMcpClientFactory.getSingleDelegateMcpClient(this.toolState, authResolver);
+                    prev = DelegateMcpClientFactory.getSingleDelegateMcpClient(this.toolState, identityResolver);
                 }
 
                 prev.setClient(null);
@@ -352,25 +353,25 @@ class SetClients {
 
         @Override
         public McpSyncClient client() {
-            var resolved = authResolver.resolveUserOrDefault();
+            var resolved = identityResolver.resolveUserOrDefault(this.toolState);
             return this.clients.get(resolved).client();
         }
 
         @Override
         public McpSchema.Implementation getClientInfo() {
-            var resolved = authResolver.resolveUserOrDefault();
+            var resolved = identityResolver.resolveUserOrDefault(this.toolState);
             return this.clients.get(resolved).getClientInfo();
         }
 
         @Override
         public boolean isInitialized() {
-            var resolved = authResolver.resolveUserOrDefault();
+            var resolved = identityResolver.resolveUserOrDefault(this.toolState);
             return this.clients.get(resolved).isInitialized();
         }
 
         @Override
         public String error() {
-            var resolved = authResolver.resolveUserOrDefault();
+            var resolved = identityResolver.resolveUserOrDefault(this.toolState);
             return this.clients.get(resolved).error();
         }
     }
@@ -386,18 +387,22 @@ class SetClients {
 
         boolean isStdio;
 
-        AuthResolver authResolver;
+        IdentityResolver identityResolver;
 
         List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback;
 
         List<ToolDecoratorService.AfterToolCallback> afterToolCallback;
 
+        ToolDecoratorService.McpServerToolState toolState;
+
         public SingleDelegateMcpClient(List<ToolDecoratorService.AfterToolCallback> afterToolCallback,
                                        List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback,
-                                       AuthResolver authResolver) {
+                                       IdentityResolver identityResolver,
+                                       ToolDecoratorService.McpServerToolState toolState) {
             this.afterToolCallback = afterToolCallback;
             this.beforeToolCallback = beforeToolCallback;
-            this.authResolver = authResolver;
+            this.identityResolver = identityResolver;
+            this.toolState = toolState;
         }
 
 
@@ -441,7 +446,8 @@ class SetClients {
                     readWriteLock.readLock().lock();
                 }
 
-                var resolved = AuthResolver.resolveBearerHeader();
+                var resolved = identityResolver.resolveIdentityToken(this.toolState);
+
 
                 if (resolved != null) {
                     callToolRequest.arguments().put(ToolDecoratorService.AUTH_BODY_FIELD, resolved);
@@ -451,7 +457,7 @@ class SetClients {
 
                 if (!CollectionUtils.isEmpty(beforeToolCallback)
                     || !CollectionUtils.isEmpty(afterToolCallback)) {
-                    jwt = authResolver.resolveJwt();
+                    jwt = identityResolver.resolveJwt(this.toolState);
                 }
 
                 for (var beforeToolCallback : beforeToolCallback) {

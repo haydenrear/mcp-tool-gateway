@@ -126,5 +126,6 @@ tasks.test {
 tasks.bootJar {
 //    dependsOn(project(":function-calling").tasks.named("copyJar"))
     archiveFileName = "mcp-tool-gateway.jar"
+    mainClass = "com.hayden.mcptoolgateway.McpToolGatewayApplication"
     enabled = true
 }

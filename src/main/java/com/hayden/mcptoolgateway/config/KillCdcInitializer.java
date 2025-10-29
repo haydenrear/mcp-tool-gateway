@@ -4,6 +4,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.Ordered;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import java.io.BufferedReader;
@@ -13,7 +14,7 @@ import java.io.InputStreamReader;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class KillCdcInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+public class KillCdcInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext>, Ordered {
 
     @SneakyThrows
     @Override
@@ -56,4 +57,8 @@ public class KillCdcInitializer implements ApplicationContextInitializer<Configu
         }
     }
 
+    @Override
+    public int getOrder() {
+        return Ordered.HIGHEST_PRECEDENCE;
+    }
 }

@@ -7,8 +7,8 @@ public interface RedeployFunction {
 
     String REDEPLOY_MCP_SERVER = "redeploy-mcp-server";
 
-    ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DeployableMcpServer name);
+    ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DecoratedMcpServer name);
 
-    void register(ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer);
+    void register(ToolGatewayConfigProperties.DecoratedMcpServer deployableMcpServer);
 
 }

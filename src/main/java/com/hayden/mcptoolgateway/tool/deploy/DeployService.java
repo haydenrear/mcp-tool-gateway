@@ -73,7 +73,7 @@ public class DeployService {
     }
 
     private Free<ToolDecoratorEffect, ToolDecoratorResult.RedeployResultWrapper> tryRollback(ToolModels.Redeploy redeploy,
-                                                                                             ToolGatewayConfigProperties.DeployableMcpServer d,
+                                                                                             ToolGatewayConfigProperties.DecoratedMcpServer d,
                                                                                              RedeployDescriptor r,
                                                                                              ToolDecoratorService.McpServerToolState toolState,
                                                                                              DeployModels.DeployState deployState) {

@@ -43,7 +43,7 @@ class SetClientsTest {
     private ToolGatewayConfigProperties toolGatewayConfigProperties;
 
     private ToolDecoratorService.McpServerToolState mockToolState;
-    private ToolGatewayConfigProperties.DeployableMcpServer testServer;
+    private ToolGatewayConfigProperties.DecoratedMcpServer testServer;
 
     @BeforeEach
     void setUp() throws IOException {

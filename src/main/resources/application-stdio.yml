@@ -1,28 +1,29 @@
-server.port: 8080
 authorization-server:
   base-uri: http://cdc-commit-diff-context-authorization:8080
 
-logging.config: classpath:logback.xml
-
-keystore:
-  key-path: ${KEY_PATH:{{PROJ_DIR}}/keys}
-  key-name: cdc-key
+logging.config: classpath:logback-mcp-tool-gateway.xml
 
 gateway:
   deployable-mcp-servers:
     commit-diff-context-mcp:
+      jwt-token: ${CDC_JWT_TOKEN:#{null}}
+      username: ${CDC_USER:#{null}}
+      password: ${PASSWORD:#{null}}
       name: commit-diff-context-mcp
       command: bash
       arguments: gradlew commit-diff-context-mcp:bootJar
       directory: {{PARENT_DIR}}
-      copy-to-artifact-path: /ctx_bin
-      copy-from-artifact-path: commit-diff-context-mcp.jar
+      copy-to-artifact-path: {{PROJ_DIR}}/ctx_bin
+      copy-from-artifact-path: {{PARENT_DIR}}/commit-diff-context-mcp/build/libs/commit-diff-context-mcp.jar
       mcp-deploy-log: {{PROJ_DIR}}/commit-diff-context-mcp.log
-  kill-script: classpath:/kill-cdc.sh
+  kill-script: file:{{BUILD_DIR}}/resources/main/kill-cdc.sh
   fail-on-mcp-client-init: false
-  mcp-stdio-servers-json-location: classpath:/stdio-mcp-servers/servers-empty.json
-  mcp-http-servers-json-location: classpath:/stdio-mcp-servers/servers-empty.json
+  mcp-stdio-servers-json-location: file:{{BUILD_DIR}}/resources/main/stdio-mcp-servers/servers-stdio.json
+  mcp-http-servers-json-location: file:{{BUILD_DIR}}/resources/main/http-mcp-servers/http-servers-stdio.json
   enable-redeployable: false
+
+server.port: 8081
+
 
 otel:
   instrumentation:
@@ -53,9 +54,6 @@ spring:
     vectorstore.type: none
     mcp:
       server:
-        stdio: false
-        enabled: true
-  docker:
-    compose:
-      file: file:/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/src/main/resources/docker/docker-compose.yml
-      enabled: false
+        stdio: true
+  main:
+    web-application-type: none

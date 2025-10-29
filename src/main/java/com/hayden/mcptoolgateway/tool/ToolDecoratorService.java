@@ -44,7 +44,7 @@ public class ToolDecoratorService {
     public record McpServerToolState(
             List<ToolCallbackProvider> toolCallbackProviders,
             ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor lastDeploy,
-            ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer,
+            ToolGatewayConfigProperties.DecoratedMcpServer deployableMcpServer,
             List<AddClient> added,
             List<BeforeToolCallback> beforeToolCallback,
             List<AfterToolCallback> afterToolCallback) { }
@@ -123,6 +123,7 @@ public class ToolDecoratorService {
                                         .deployableMcpServer(d.getValue())
                                         .build());
                         var toolDecoratorResult = Free.parse(m, toolDecoratorInterpreter);
+
                         if (toolDecoratorResult instanceof ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult s) {
                             return Stream.of(
                                     Map.entry(
@@ -130,7 +131,7 @@ public class ToolDecoratorService {
                                             new ToolDecoratorInterpreter.ToolDecoratorEffect.AddMcpServerToolState(
                                                     new ToolDecorator.ToolDecoratorToolStateUpdate.AddToolToolStateUpdate(d.getKey(), s.toolState(), s.getToolStateChanges()))));
                         } else {
-                            log.error("Found unknown tool decorator result {}", toolDecoratorResult);
+                            log.error("Found unknown tool decorator result while executing buildTools {}", toolDecoratorResult.getClass().getName());
                         }
 
                         return Stream.empty();
@@ -148,10 +149,11 @@ public class ToolDecoratorService {
 
         var res = Free.parse(Free.liftF(new ToolDecoratorInterpreter.ToolDecoratorEffect.AddManyMcpServerToolState(decoratedTools)), toolDecoratorInterpreter);
 
-        if (res instanceof ToolDecoratorInterpreter.ToolDecoratorResult.UpdatedToolState tc) {
-            log.info("Found updated tool decorator result {}", tc);
+        if (res instanceof ToolDecoratorInterpreter.ToolDecoratorResult.UpdatedToolState
+                || res instanceof ToolDecoratorInterpreter.ToolDecoratorResult.UpdatedToolMcp) {
+            log.info("Found updated tool decorator result {}", res.getClass().getName());
         } else {
-            log.error("Found unknown tool decorator result {}", res);
+            log.error("Found unknown tool decorator result after making update {}", res.getClass().getName());
         }
    }
 

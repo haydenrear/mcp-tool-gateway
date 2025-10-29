@@ -40,16 +40,16 @@ public class ToolDecoratorInterpreter
     public sealed interface ToolDecoratorEffect extends Effect {
 
         record PrepareRollback(
-                ToolGatewayConfigProperties.DeployableMcpServer d) implements ToolDecoratorEffect {
+                ToolGatewayConfigProperties.DecoratedMcpServer d) implements ToolDecoratorEffect {
         }
 
         record PerformRedeploy(
-                ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer) implements ToolDecoratorEffect {
+                ToolGatewayConfigProperties.DecoratedMcpServer redeployMcpServer) implements ToolDecoratorEffect {
         }
 
         record PerformRollback(
                 ToolModels.Redeploy redeploy,
-                ToolGatewayConfigProperties.DeployableMcpServer d,
+                ToolGatewayConfigProperties.DecoratedMcpServer d,
                 ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor r,
                 ToolDecoratorService.McpServerToolState remove,
                 DeployModels.DeployState deployState) implements ToolDecoratorEffect {
@@ -104,13 +104,13 @@ public class ToolDecoratorInterpreter
 
         record DoRedeploy(
                 ToolModels.Redeploy redeploy,
-                ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer,
+                ToolGatewayConfigProperties.DecoratedMcpServer redeployMcpServer,
                 ToolDecoratorService.McpServerToolState toolState) implements ToolDecoratorEffect {
         }
 
         record KillClientAndRedeploy(
                 ToolModels.Redeploy redeploy,
-                ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer,
+                ToolGatewayConfigProperties.DecoratedMcpServer redeployMcpServer,
                 ToolDecoratorService.McpServerToolState toolState) implements ToolDecoratorEffect {
         }
 
@@ -125,7 +125,7 @@ public class ToolDecoratorInterpreter
             @Builder
             record AfterSuccessfulRedeploy(
                     ToolModels.Redeploy redeploy,
-                    ToolGatewayConfigProperties.DeployableMcpServer d,
+                    ToolGatewayConfigProperties.DecoratedMcpServer d,
                     ToolDecoratorResult.RedeployDescriptor r,
                     ToolDecoratorService.McpServerToolState toolState) implements AfterDeployHandleMcp {
             }
@@ -133,7 +133,7 @@ public class ToolDecoratorInterpreter
             @Builder
             record AfterFailedDeployTryRollback(
                     ToolModels.Redeploy redeploy,
-                    ToolGatewayConfigProperties.DeployableMcpServer d,
+                    ToolGatewayConfigProperties.DecoratedMcpServer d,
                     ToolDecoratorResult.RedeployDescriptor r,
                     ToolDecoratorService.McpServerToolState remove,
                     DeployModels.DeployState deployState) implements AfterDeployHandleMcp {
@@ -142,7 +142,7 @@ public class ToolDecoratorInterpreter
             @Builder
             record AfterRollbackSuccess(
                     ToolModels.Redeploy redeploy,
-                    ToolGatewayConfigProperties.DeployableMcpServer d,
+                    ToolGatewayConfigProperties.DecoratedMcpServer d,
                     ToolDecoratorResult.RedeployDescriptor r,
                     ToolDecoratorService.McpServerToolState remove,
                     DeployModels.DeployState deployState,
@@ -153,7 +153,7 @@ public class ToolDecoratorInterpreter
             @Builder
             record AfterRollbackFail(
                     ToolModels.Redeploy redeploy,
-                    ToolGatewayConfigProperties.DeployableMcpServer d,
+                    ToolGatewayConfigProperties.DecoratedMcpServer d,
                     ToolDecoratorResult.RedeployDescriptor r,
                     ToolDecoratorService.McpServerToolState remove,
                     DeployModels.DeployState deployState,

@@ -1,6 +1,7 @@
 package com.hayden.mcptoolgateway.config;
 
 import com.hayden.commitdiffmodel.config.GraphQlProps;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,7 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 
 @Configuration
+@ConditionalOnProperty(value = "gateway.enable-redeployable", havingValue = "true", matchIfMissing = true)
 public class GraphQlConfig {
 
     @Bean

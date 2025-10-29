@@ -19,7 +19,7 @@ public class Redeploy {
     private ToolDecoratorInterpreter toolDecoratorInterpreter;
 
     ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper doRedeploy(ToolModels.Redeploy redeploy,
-                          ToolGatewayConfigProperties.DeployableMcpServer redeployMcpServer,
+                          ToolGatewayConfigProperties.DecoratedMcpServer redeployMcpServer,
                           ToolDecoratorService.McpServerToolState toolState) {
         return doRedeploy(new ToolDecoratorInterpreter.ToolDecoratorEffect.DoRedeploy(redeploy, redeployMcpServer, toolState));
     }

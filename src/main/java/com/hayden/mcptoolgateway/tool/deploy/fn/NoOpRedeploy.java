@@ -11,12 +11,12 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(value = "gateway.enable-redeployable", havingValue = "false")
 public class NoOpRedeploy implements RedeployFunction {
     @Override
-    public ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DeployableMcpServer name) {
+    public ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DecoratedMcpServer name) {
         throw new  UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
-    public void register(ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer) {
+    public void register(ToolGatewayConfigProperties.DecoratedMcpServer deployableMcpServer) {
         throw new  UnsupportedOperationException("Not supported yet.");
     }
 }

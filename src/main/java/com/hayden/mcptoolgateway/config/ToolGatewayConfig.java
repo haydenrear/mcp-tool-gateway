@@ -2,7 +2,8 @@ package com.hayden.mcptoolgateway.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hayden.mcptoolgateway.security.AuthResolver;
+import com.hayden.mcptoolgateway.security.IdentityResolver;
+import com.hayden.mcptoolgateway.security.OAuth2AuthorizationServerResolver;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.stream.StreamUtil;
@@ -34,7 +35,6 @@ import static io.modelcontextprotocol.server.transport.HttpServletSseServerTrans
 
 @Slf4j
 @Configuration
-@Import({AuthResolver.class})
 public class ToolGatewayConfig {
 
     @Autowired
@@ -111,15 +111,22 @@ public class ToolGatewayConfig {
 
     @Bean
     @Primary
-    public List<NamedClientMcpTransport> namedTransports(ObjectMapper objectMapper, AuthResolver authResolver) {
+    public List<NamedClientMcpTransport> namedTransports(ObjectMapper objectMapper,
+                                                         IdentityResolver authResolver) {
         var http = resourceToHttpServerParameters().entrySet()
                 .stream()
+                .peek(e -> {
+                    if (!toolGatewayConfigProperties.getDeployableMcpServers().containsKey(e.getKey())) {
+                        throw new RuntimeException("Must have MCP server config for %s".formatted(e.getKey()));
+                    }
+                })
                 .map(e -> new NamedClientMcpTransport(
                         e.getKey(),
                         AuthAwareHttpSseClientTransport.authAwareBuilder(e.getValue().url())
                                 .objectMapper(objectMapper)
                                 .authResolver(authResolver)
                                 .sseEndpoint(e.getKey())
+                                .configProperties(toolGatewayConfigProperties.deployableMcpServers.get(e.getKey()))
                                 .build()));
         var stdio = resourceToStdioServerParameters().entrySet()
                 .stream()

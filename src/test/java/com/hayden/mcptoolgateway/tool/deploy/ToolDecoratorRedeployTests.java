@@ -63,7 +63,7 @@ class ToolDecoratorRedeployTests {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private ToolGatewayConfigProperties.DeployableMcpServer testServer;
+    private ToolGatewayConfigProperties.DecoratedMcpServer testServer;
     @Autowired
     private McpServerToolStates mcpServerToolStates;
 

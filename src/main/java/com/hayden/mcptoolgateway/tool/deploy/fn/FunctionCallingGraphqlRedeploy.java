@@ -26,7 +26,7 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
     private final DgsGraphQlClient graphQlClient;
 
 
-    public void register(ToolGatewayConfigProperties.DeployableMcpServer deployableMcpServer) {
+    public void register(ToolGatewayConfigProperties.DecoratedMcpServer deployableMcpServer) {
         log.info("Registering {}", deployableMcpServer.getName());
         RegisterCodeBuildGraphQLQuery registerCodeBuildGraphQLQuery = RegisterCodeBuildGraphQLQuery
                 .newRequest()
@@ -63,7 +63,7 @@ public class FunctionCallingGraphqlRedeploy implements RedeployFunction {
     }
 
     @Override
-    public ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DeployableMcpServer name) {
+    public ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DecoratedMcpServer name) {
         var execute = BuildGraphQLQuery.newRequest()
                 .options(CodeBuildOptions.newBuilder()
                         .writeToFile(true)

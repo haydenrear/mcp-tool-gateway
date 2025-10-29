@@ -8,8 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -27,15 +25,18 @@ public class ToolGatewayConfigProperties {
     @NoArgsConstructor
     @Builder
     @ToString
-    public static class DeployableMcpServer {
+    public static class DecoratedMcpServer {
 
-        public DeployableMcpServer(String name, String command, Path directory, Path binary) {
+        public DecoratedMcpServer(String name, String command, Path directory, Path binary) {
             this.name = name;
             this.command = command;
             this.directory = directory;
             this.copyToArtifactPath = binary;
         }
 
+        private String jwtToken;
+        private String username;
+        private String password;
         private String name;
         private String command;
         private String arguments;
@@ -63,7 +64,7 @@ public class ToolGatewayConfigProperties {
         }
     }
 
-    Map<String, DeployableMcpServer> deployableMcpServers;
+    Map<String, DecoratedMcpServer> deployableMcpServers;
 
     Path artifactCache = Paths.get(System.getProperty("user.home"), ".cache", "tool-gateway");
 
