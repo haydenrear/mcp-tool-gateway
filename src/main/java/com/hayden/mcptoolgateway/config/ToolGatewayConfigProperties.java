@@ -35,6 +35,7 @@ public class ToolGatewayConfigProperties {
         }
 
         private String jwtToken;
+        private String s2sIdentity;
         private String username;
         private String password;
         private String name;

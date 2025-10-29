@@ -2,6 +2,7 @@ package com.hayden.mcptoolgateway.security;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -22,53 +23,19 @@ import java.util.stream.Collectors;
 
 @Component
 @ConditionalOnProperty(value = "spring.ai.mcp.server.stdio", havingValue = "false", matchIfMissing = true)
+@RequiredArgsConstructor
 public class OAuth2AuthorizationServerResolver implements IdentityResolver {
 
-    @Autowired
-    ClientRegistrationRepository clientRegistrationRepository;
-    @Autowired
-    ClientCredentialsOAuth2AuthorizedClientProvider manager;
-    @Autowired
-    JwtDecoder jwtDecoder;
-
-    private ClientRegistration clientRegistration;
-
-    @PostConstruct
-    public void init() {
-        clientRegistration = clientRegistrationRepository.findByRegistrationId("cdc-oauth2-client");
-    }
-
-    private Optional<String> clientCredentialsBearerBlocking() {
-        Collection<GrantedAuthority> authorities = clientRegistration.getScopes().stream()
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toCollection(() -> {
-                    Collection<GrantedAuthority> s = new ArrayList<>();
-                    return s;
-                }));
-
-        var principal = new AnonymousAuthenticationToken("client-credentials", "cdc-oauth2-client", authorities);
-
-        OAuth2AuthorizationContext authorizationContext = OAuth2AuthorizationContext
-                .withClientRegistration(clientRegistration)
-                .principal(principal)
-                .build();
-        var auth = manager.authorize(authorizationContext);
-
-        return Optional.ofNullable(auth)
-                .flatMap(o -> Optional.ofNullable(o.getAccessToken().getTokenValue()));
-    }
+    private final JwtDecoder jwtDecoder;
+    private final ClientCredentialsResolver clientCredentialsResolver;
 
     /** Reactive wrapper (true non-blocking from caller’s POV): */
     public Mono<String> clientCredentialsBearer() {
-        return reactor.core.publisher.Mono
-                .fromCallable(this::clientCredentialsBearerBlocking)
-                .flatMap(Mono::justOrEmpty)
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return clientCredentialsResolver.clientCredentialsBearer();
     }
 
-
     @Override
-    public String resolveIdentityToken(ToolDecoratorService.McpServerToolState toolState) {
+    public String resolveIdentityToken(ToolGatewayConfigProperties.DecoratedMcpServer toolState) {
         return IdentityResolver.resolveIdentityTokenBearer();
     }
 
@@ -92,9 +59,7 @@ public class OAuth2AuthorizationServerResolver implements IdentityResolver {
         // Works when called inside a reactive chain (RouterFunction handlers etc.)
         var bearer = IdentityResolver.toBearer(
                 SecurityContextHolder.getContext() != null ? SecurityContextHolder.getContext().getAuthentication() : null);
-        return Optional.ofNullable(bearer)
-                .flatMap(s -> Optional.ofNullable(jwtDecoder.decode(s)))
-                .flatMap(j -> Optional.ofNullable(j.getSubject()));
+        return IdentityResolver.resolveUserFromJwtToken(bearer, jwtDecoder);
     }
 
     @Override

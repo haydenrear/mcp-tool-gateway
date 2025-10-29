@@ -41,7 +41,8 @@ public class ResourceServerConfig {
 
 
     @Bean
-    SecurityFilterChain resourceServerSecurityConf(HttpSecurity http, KubernetesFilter kubernetesFilter, CreditVerificationFilter creditVerificationFilter) throws Exception {
+    SecurityFilterChain resourceServerSecurityConf(HttpSecurity http, KubernetesFilter kubernetesFilter,
+                                                   CreditVerificationFilter creditVerificationFilter) throws Exception {
         var b= http
                 .oauth2ResourceServer(res -> res.jwt(Customizer.withDefaults()))
                 .addFilterAfter(creditVerificationFilter, BearerTokenAuthenticationFilter.class)
