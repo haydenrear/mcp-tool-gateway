@@ -26,11 +26,11 @@ public class StdioResourceConfig {
         return client;
     }
 
-    @Bean
-    ClientRegistration thisS2sClient() {
-        return ClientRegistration.withRegistrationId("cdc")
-                .build();
-    }
+//    @Bean
+//    ClientRegistration thisS2sClient() {
+//        return ClientRegistration.withRegistrationId("cdc")
+//                .build();
+//    }
 
     @Bean
     JwtDecoder decoderOnly(KeyFiles keyFiles) {

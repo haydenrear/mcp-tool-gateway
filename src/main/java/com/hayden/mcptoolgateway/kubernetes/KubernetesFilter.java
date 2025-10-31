@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -20,6 +21,7 @@ import static com.hayden.commitdiffcontext.cdc_config.AuthorizationServerConfigP
 
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "spring.ai.mcp.server.stdio", havingValue = "false", matchIfMissing = true)
 public class KubernetesFilter extends OncePerRequestFilter {
 
     private final ToolDecoratorService toolDecoratorService;
@@ -27,8 +29,6 @@ public class KubernetesFilter extends OncePerRequestFilter {
     private final K3sService deployment;
 
     private final IdentityResolver identityResolver;
-
-    private final ToolGatewayConfigProperties configProperties;
 
     @Override
     protected void doFilterInternal(@NotNull HttpServletRequest request,
