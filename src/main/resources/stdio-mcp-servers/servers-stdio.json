@@ -7,7 +7,7 @@
         "{{PROJ_DIR}}/ctx_bin/commit-diff-context-mcp.jar"
       ],
       "env": {
-        "SPRING_PROFILES_ACTIVE": "stdio",
+        "SPRING_PROFILES_ACTIVE": "tracing,telemetry-logging,stdio",
         "DID_INDEX": "false"
       }
     }
