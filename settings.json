@@ -6,7 +6,7 @@
       "/Users/hayde/IdeaProjects/commit-diff-context-parent/mcp-tool-gateway/build/libs/mcp-tool-gateway.jar"
     ],
     "env": {
-      "SPRING_PROFILES_ACTIVE": "prod"
+      "SPRING_PROFILES_ACTIVE": "stdio"
     }
   }
 }
