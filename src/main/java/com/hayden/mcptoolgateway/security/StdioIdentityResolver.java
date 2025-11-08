@@ -91,7 +91,7 @@ public class StdioIdentityResolver implements IdentityResolver {
         try {
             return Optional.ofNullable(jwtDecoder.decode(s));
         } catch (Exception e) {
-            log.error("Error decoding jwt.", e);
+            log.error("Error decoding jwt {}.", s);
             return Optional.empty();
         }
     }
