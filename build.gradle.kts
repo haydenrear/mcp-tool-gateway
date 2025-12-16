@@ -46,7 +46,7 @@ dependencies {
     implementation(project(":commit-diff-model"))
     implementation(project(":commit-diff-context"))
     implementation(project(":tracing"))
-    implementation(project(":test-mcp-server"))
+//    implementation(project(":test-mcp-server"))
     implementation(project(":jpa-persistence"))
     implementation(project(":persistence"))
     implementation(project(":runner_code"))
@@ -60,18 +60,18 @@ dependencies {
 
 val projDir = layout.projectDirectory
 
-tasks.register<Copy>("copyTestMcpServer") {
-    doFirst {
-        delete(file(projDir).resolve("ctx_bin/test-mcp-server.jar"))
-    }
-
-    dependsOn(project(":test-mcp-server").tasks.named("bootJar"))
-    val sourcePaths = file(project(":test-mcp-server").layout.buildDirectory).resolve("libs/test-mcp-server.jar")
-    from(sourcePaths)
-    into(file(projDir).resolve("ctx_bin"))
-    // Optionally rename it to a fixed name
-    rename { "test-mcp-server.jar" }
-}
+//tasks.register<Copy>("copyTestMcpServer") {
+//    doFirst {
+//        delete(file(projDir).resolve("ctx_bin/test-mcp-server.jar"))
+//    }
+//
+//    dependsOn(project(":test-mcp-server").tasks.named("bootJar"))
+//    val sourcePaths = file(project(":test-mcp-server").layout.buildDirectory).resolve("libs/test-mcp-server.jar")
+//    from(sourcePaths)
+//    into(file(projDir).resolve("ctx_bin"))
+//    // Optionally rename it to a fixed name
+//    rename { "test-mcp-server.jar" }
+//}
 
 tasks.register<Copy>("copyCommitDiffCtxMcp") {
     doFirst {
@@ -113,7 +113,9 @@ if (enableDocker && buildMcpToolGateway) {
 }
 
 tasks.compileJava {
-    dependsOn("copyTestMcpServer", "copyCommitDiffCtxMcp", "processYmlFiles")
+    dependsOn(
+//        "copyTestMcpServer",
+        "copyCommitDiffCtxMcp", "processYmlFiles")
     finalizedBy("processMcpServerJson")
 }
 
