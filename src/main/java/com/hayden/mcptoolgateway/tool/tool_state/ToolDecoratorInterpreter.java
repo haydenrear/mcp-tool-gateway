@@ -344,6 +344,9 @@ public class ToolDecoratorInterpreter
 
                     this.toolStates.addAllUpdates(d.newMcpServerState());
 
+                    if (!d.stateChanges().isEmpty())
+                        this.toolStates.notifyToolsListChanged();
+
                     return Free.liftF(new ToolDecoratorEffect.UpdateMcpServerWithToolChanges(d.stateChanges()));
                 });
 

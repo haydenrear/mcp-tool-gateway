@@ -102,7 +102,7 @@ public class RollbackTests {
 
         // Then
         verify(mcpSyncServerDelegate, atLeastOnce()).addTool(any());
-        verify(mcpSyncServerDelegate).notifyToolsListChanged();
+        verify(mcpSyncServerDelegate, times(2)).notifyToolsListChanged();
     }
 
     @Test
@@ -252,7 +252,7 @@ public class RollbackTests {
         // Then - Verify the full integration works
         assertThat(setClients.noClientKey("test-rollback-server")).isFalse();
         verify(mcpSyncServerDelegate, atLeastOnce()).addTool(any()); // Redeploy tool should be added
-        verify(mcpSyncServerDelegate).notifyToolsListChanged();
+        verify(mcpSyncServerDelegate, times(2)).notifyToolsListChanged();
     }
 
     @Test

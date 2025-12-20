@@ -100,7 +100,7 @@ class ToolDecoratorRedeployTests {
 
         // Then
         verify(mcpSyncServer, atLeastOnce()).addTool(any());
-        verify(mcpSyncServer).notifyToolsListChanged();
+        verify(mcpSyncServer, times(1)).notifyToolsListChanged();
     }
 
     @Test
@@ -422,6 +422,6 @@ class ToolDecoratorRedeployTests {
 
         // Then
         verify(mcpSyncServer, atLeastOnce()).addTool(any());
-        verify(mcpSyncServer).notifyToolsListChanged();
+        verify(mcpSyncServer, times(2)).notifyToolsListChanged();
     }
 }
