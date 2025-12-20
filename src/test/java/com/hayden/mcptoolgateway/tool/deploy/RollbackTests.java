@@ -243,7 +243,7 @@ public class RollbackTests {
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
-        McpSchema.Tool redeployTool = new McpSchema.Tool("redeploy-tool", "Test redeploy tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool redeployTool = new McpSchema.Tool("toSearch-tool", "Test toSearch tool", JsonSchemaGenerator.generateForType(String.class));
         when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(redeployTool), null));
 
         // When

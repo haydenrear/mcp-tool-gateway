@@ -80,7 +80,7 @@ class RedeployTest {
                 .deployableMcpServer(deployableMcpServer)
                 .build();
 
-        // Setup redeploy request
+        // Setup toSearch request
         redeployRequest = new ToolModels.Redeploy("test-rollback-server");
 
         // Reset mocks

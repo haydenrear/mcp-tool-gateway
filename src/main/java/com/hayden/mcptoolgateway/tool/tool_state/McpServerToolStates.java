@@ -159,10 +159,6 @@ public class McpServerToolStates {
         this.mcpServerToolStates.put(name, mcpServerToolState);
     }
 
-    public void addUpdateToolState(Map<String, ToolDecoratorService.McpServerToolState> states) {
-        this.mcpServerToolStates.putAll(states);
-    }
-
     public void addAllUpdates(Map<String, ToolDecoratorService.McpServerToolState> states) {
         this.mcpServerToolStates.putAll(states);
     }
@@ -184,6 +180,7 @@ public class McpServerToolStates {
                                 List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback,
                                 List<ToolDecoratorService.AfterToolCallback> afterToolCallback
                         ) -> {
+//                            TODO:
                             this.setClients.syncClients.get(name);
                         }
                     }
@@ -220,6 +217,10 @@ public class McpServerToolStates {
 
     public boolean clientInitialized(String service) {
         return setClients.clientInitialized(service);
+    }
+
+    public boolean clientHasServer(String client, String serverName) {
+        return setClients.clientHasServer(client, serverName);
     }
 
     public String getError(String clientName) {

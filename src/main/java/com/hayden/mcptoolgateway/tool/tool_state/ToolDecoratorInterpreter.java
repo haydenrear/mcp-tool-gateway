@@ -37,6 +37,17 @@ import java.util.stream.Collectors;
 public class ToolDecoratorInterpreter
         implements Interpreter<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult> {
 
+    @Override
+    public FreeErrorMapper<ToolDecoratorEffect, ToolDecoratorResult> mapErr() {
+        return s -> {
+            if(s.error().t() instanceof RuntimeException r) {
+                throw r;
+            }
+
+            return Interpreter.super.mapErr().apply(s);
+        };
+    }
+
     public sealed interface ToolDecoratorEffect extends Effect {
 
         record PrepareRollback(
@@ -50,7 +61,7 @@ public class ToolDecoratorInterpreter
         record PerformRollback(
                 ToolModels.Redeploy redeploy,
                 ToolGatewayConfigProperties.DecoratedMcpServer d,
-                ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor r,
+                ToolDecoratorResult.RedeployDescriptor r,
                 ToolDecoratorService.McpServerToolState remove,
                 DeployModels.DeployState deployState) implements ToolDecoratorEffect {
         }
@@ -106,6 +117,12 @@ public class ToolDecoratorInterpreter
                 ToolModels.Redeploy redeploy,
                 ToolGatewayConfigProperties.DecoratedMcpServer redeployMcpServer,
                 ToolDecoratorService.McpServerToolState toolState) implements ToolDecoratorEffect {
+        }
+
+        record DoToolSearch(
+                ToolModels.Add toSearch,
+                ToolGatewayConfigProperties.DecoratedMcpServer redeployMcpServer,
+                ToolDecoratorService.McpServerToolState toolState)  {
         }
 
         record KillClientAndRedeploy(
@@ -179,6 +196,17 @@ public class ToolDecoratorInterpreter
 
         record UpdatedToolMcp(
                 List<ToolDecorator.McpServerToolStateChange> changes) implements ToolDecoratorResult {
+        }
+
+        @Builder(toBuilder = true)
+        record SearchResultWrapper(
+                ToolDecoratorService.McpServerToolState newToolState,
+                List<ToolDecorator.McpServerToolStateChange> toolStateChanges,
+                List<McpServerFeatures.SyncToolSpecification> added,
+                String err) implements ToolDecoratorResult {
+            public boolean didToolListChange() {
+                return !toolStateChanges.isEmpty();
+            }
         }
 
         @Builder(toBuilder = true)
@@ -305,8 +333,12 @@ public class ToolDecoratorInterpreter
 
                     for (var t : toolDecorators) {
                         if (t.isEnabled())  {
-                            var next = t.decorate(d);
-                            d = d.update(next);
+                            try {
+                                var next = t.decorate(d);
+                                d = d.update(next);
+                            } catch (Exception e) {
+                                log.error("Error attempting to add.");
+                            }
                         }
                     }
 
@@ -373,7 +405,7 @@ public class ToolDecoratorInterpreter
                                 })
                                 .flatMap(dep -> {
                                     if (!dep.isSuccess()) {
-                                        log.debug("Failed to perform redeploy {} - copying old artifact and restarting.", dep);
+                                        log.debug("Failed to perform toSearch {} - copying old artifact and restarting.", dep);
                                         return Free.<ToolDecoratorEffect, ToolDecoratorResult.RedeployResultWrapper>liftF(new ToolDecoratorEffect.PerformRollback(killClientAndRedeploy.redeploy, killClientAndRedeploy.redeployMcpServer, dep, killClientAndRedeploy.toolState, DeployModels.DeployState.DEPLOY_FAIL))
                                                 .flatMap(redep -> doHandleRedeployOrRollback(killClientAndRedeploy, dep, redep))
                                                 .flatMap(Free::pure);

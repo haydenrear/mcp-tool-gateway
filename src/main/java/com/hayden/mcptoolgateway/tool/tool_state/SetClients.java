@@ -82,6 +82,11 @@ class SetClients {
         return clientHasError(clientName) ? syncClients.get(clientName).error() : "Client has no error.";
     }
 
+    boolean clientHasServer(String client, String toolName) {
+        return syncClients.get(client).client().listTools().tools()
+                .stream().anyMatch(t -> t.name().equals(toolName));
+    }
+
     boolean isMcpServerAvailable(String key) {
         try {
             var isInit = Optional.ofNullable(this.syncClients.get(key))
@@ -531,9 +536,6 @@ class SetClients {
                 ReflectionUtils.makeAccessible(clientTransportField);
                 var clientTransport = (McpClientTransport) ReflectionUtils.getField(clientTransportField, asyncClient);
                 return clientTransport instanceof StdioClientTransport;
-            } catch (NoSuchFieldException e) {
-                log.error("Could not get delegate field.", e);
-                return true;
             } catch (Exception e){
                 log.error("Could not get delegate field.", e);
                 return true;

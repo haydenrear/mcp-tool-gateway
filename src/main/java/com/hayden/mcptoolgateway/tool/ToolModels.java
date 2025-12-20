@@ -7,5 +7,7 @@ public interface ToolModels {
 
     record Redeploy(@JsonProperty("service_name") String deployService) {}
 
+    record Add(@JsonProperty("tool_name") String tool) {}
+
 
 }

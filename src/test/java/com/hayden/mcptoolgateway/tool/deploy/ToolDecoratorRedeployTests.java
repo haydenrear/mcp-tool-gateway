@@ -367,7 +367,7 @@ class ToolDecoratorRedeployTests {
         redeployToolDecorator.doRedeploy(redeployRequest, testServer);
 
         // Then
-        verify(mcpSyncServer, atLeast(2)).notifyToolsListChanged(); // Once in init, once after redeploy
+        verify(mcpSyncServer, atLeast(2)).notifyToolsListChanged(); // Once in init, once after toSearch
     }
 
     @Test
