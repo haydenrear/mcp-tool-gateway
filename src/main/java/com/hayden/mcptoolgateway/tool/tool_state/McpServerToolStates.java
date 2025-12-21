@@ -298,7 +298,7 @@ public class McpServerToolStates {
                                 toolsAdded.add(tc.getToolDefinition().name());
                                 tools.add(tc.getToolDefinition().name());
                             });
-                    log.info("Adding new toolfor callback {}", tcp.toolName().name());
+                    log.info("Adding new tool for callback {}", tcp.toolName().name());
                     providersCreated.add(tcp.provider());
                 }
             }

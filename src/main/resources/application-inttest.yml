@@ -8,5 +8,6 @@ gateway:
       copy-to-artifact-path: {{PROJ_DIR}}/ctx_bin
       copy-from-artifact-path: {{PARENT_DIR}}/test-mcp-server/build/libs/test-mcp-server.jar
       mcp-deploy-log: {{PROJ_DIR}}/test-mcp-server.log
+      stdio: true
   mcp-http-servers-json-location: file:{{BUILD_DIR}}/resources/main/http-mcp-servers/servers-inttest.json
   mcp-stdio-servers-json-location: file:{{BUILD_DIR}}/resources/main/stdio-mcp-servers/servers-inttest.json

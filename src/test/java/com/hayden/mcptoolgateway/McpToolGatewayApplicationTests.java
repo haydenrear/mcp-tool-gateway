@@ -26,11 +26,16 @@ class McpToolGatewayApplicationTests {
         assertThat(new File("ctx_bin/test-mcp-server.jar").exists()).isTrue();
         assertThat(dynamicMcpToolCallbackProvider.containsClient("test-rollback-server")).isTrue();
         assertThat(dynamicMcpToolCallbackProvider.containsActiveClient("test-rollback-server")).isTrue();
+        assertThat(dynamicMcpToolCallbackProvider.containsClient("test-rollback-server-2")).isFalse();
+        assertThat(dynamicMcpToolCallbackProvider.containsActiveClient("test-rollback-server-2")).isFalse();
+        var added = toolDecoratorService.createAddServer(new ToolDecoratorService.AddToolSearch("test-rollback-server-2", null));
+        assertThat(dynamicMcpToolCallbackProvider.containsClient("test-rollback-server-2")).isTrue();
+        assertThat(dynamicMcpToolCallbackProvider.containsActiveClient("test-rollback-server-2")).isTrue();
+        assertThat(added.underlying().tools().stream().anyMatch(a -> a.contains("doSomethingAgain"))).isTrue();
     }
 
     @Test
     void testBuilder() {
-
     }
 
 }

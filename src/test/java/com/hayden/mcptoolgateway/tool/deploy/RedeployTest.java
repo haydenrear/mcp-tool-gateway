@@ -76,6 +76,7 @@ class RedeployTest {
         // Setup tool state
         toolState = ToolDecoratorService.McpServerToolState
                 .builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(new ArrayList<>())
                 .deployableMcpServer(deployableMcpServer)
                 .build();

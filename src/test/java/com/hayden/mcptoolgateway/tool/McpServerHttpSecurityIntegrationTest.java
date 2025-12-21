@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -91,7 +92,10 @@ class McpServerHttpSecurityIntegrationTest {
             accessToken = obtainAccessToken();
             stubToken(accessToken);
         }
-        toolStates.addUpdateToolState("cdctest-user", ToolDecoratorService.McpServerToolState.builder().build());
+        toolStates.addUpdateToolState("cdctest-user", ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
+                .build()
+                .initialize());
         userMetadataRepository.findByUserId("test-user")
                 .ifPresentOrElse(
                         um -> {},

@@ -6,6 +6,17 @@
         "-jar",
         "{{PROJ_DIR}}/ctx_bin/test-mcp-server.jar"
       ]
+    },
+    "test-rollback-server-2": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "{{PROJ_DIR}}/ctx_bin/test-mcp-server.jar"
+      ],
+      "env": {
+        "ENABLE_MCP_TEST_TOOLS_2": "true",
+        "ENABLE_MCP_TEST_TOOLS": "false"
+      }
     }
   }
 }

@@ -18,6 +18,7 @@ gateway:
       copy-to-artifact-path: /ctx_bin
       copy-from-artifact-path: commit-diff-context-mcp.jar
       mcp-deploy-log: {{PROJ_DIR}}/commit-diff-context-mcp.log
+      stdio: true
   kill-script: classpath:/kill-cdc.sh
   fail-on-mcp-client-init: false
   mcp-stdio-servers-json-location: classpath:/stdio-mcp-servers/servers-empty.json

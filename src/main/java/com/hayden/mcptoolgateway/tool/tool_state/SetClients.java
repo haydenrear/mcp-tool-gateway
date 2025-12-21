@@ -528,21 +528,10 @@ class SetClients {
         }
 
         private boolean isStdio(McpSyncClient client) {
-            try {
-                var delegate = client.getClass().getDeclaredField("delegate");
-                ReflectionUtils.makeAccessible(delegate);
-                McpAsyncClient asyncClient = (McpAsyncClient) ReflectionUtils.getField(delegate, client);
-                var clientTransportField = McpAsyncClient.class.getDeclaredField("transport");
-                ReflectionUtils.makeAccessible(clientTransportField);
-                var clientTransport = (McpClientTransport) ReflectionUtils.getField(clientTransportField, asyncClient);
-                return clientTransport instanceof StdioClientTransport;
-            } catch (Exception e){
-                log.error("Could not get delegate field.", e);
-                return true;
-            }
+            if (toolState == null)
+                throw new RuntimeException("Could not find tool state!");
+
+            return toolState.deployableMcpServer().isStdio();
         }
-
-
-
     }
 }

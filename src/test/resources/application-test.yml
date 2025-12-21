@@ -8,8 +8,17 @@ authorization-server:
 gateway:
   deployable-mcp-servers:
     test-rollback-server:
+      stdio: true
       name: test-rollback-server
       command: echo "deploy command"
+      directory: classpath:.cache
+      copy-to-artifact-path: classpath:test_work
+      copy-from-artifact-path: classpath:test_work/test-binary.jar
+  addable-mcp-servers:
+    test-rollback-server-2:
+      stdio: true
+      name: test-rollback-server-2
+      command: echo "add command"
       directory: classpath:.cache
       copy-to-artifact-path: classpath:test_work
       copy-from-artifact-path: classpath:test_work/test-binary.jar

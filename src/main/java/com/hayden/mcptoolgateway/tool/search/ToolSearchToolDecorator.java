@@ -22,6 +22,7 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -100,8 +101,10 @@ public class ToolSearchToolDecorator implements ToolDecorator {
         ts.addTool(McpToolUtils.toSyncToolSpecification(redeployToolCallbackProvider.getToolCallbacks()[0]));
 
         return ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(Lists.newArrayList(redeployToolCallbackProvider))
-                .build();
+                .build()
+                .initialize();
     }
 
     SearchModels.SearchResult doToolAdd(ToolModels.Add i,
@@ -113,7 +116,10 @@ public class ToolSearchToolDecorator implements ToolDecorator {
                     .build();
         }
 
-        var r = search.doToolSearch(new ToolDecoratorInterpreter.ToolDecoratorEffect.DoToolSearch(i, toRedeploy, this.ts.removeToolState(i.tool())));
+        var r = search.doToolSearch(new ToolDecoratorInterpreter.ToolDecoratorEffect.DoToolSearch(
+                i,
+                toRedeploy,
+                this.ts.copyOf().get(i.tool())));
 
         this.ts.addUpdateToolState(i.tool(), r.newToolState());
 
@@ -125,10 +131,16 @@ public class ToolSearchToolDecorator implements ToolDecorator {
             return new SearchModels.SearchResult(
                     i.tool(),
                     addedSchema.schema,
-                    String.join(", ", r.err(), addedSchema.err));
+                    Stream.of(r.err(), addedSchema.err)
+                            .filter(ToolSearchToolDecorator::isNotNull)
+                            .collect(Collectors.joining(", ")));
         }
 
-        return new SearchModels.SearchResult(null, null, r.err());
+        return new SearchModels.SearchResult(null, null, isNotNull(r.err()) ? r.err() : null    );
+    }
+
+    private static boolean isNotNull(String s) {
+        return StringUtils.isNotBlank(s) && !Objects.equals("null", s);
     }
 
     @Builder
