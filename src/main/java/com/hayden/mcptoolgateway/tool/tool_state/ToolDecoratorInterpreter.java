@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
+import org.springframework.ai.tool.StaticToolCallbackProvider;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -247,6 +248,7 @@ public class ToolDecoratorInterpreter
 
         @Builder(toBuilder = true)
         record SetSyncClientResult(
+                McpServerToolStates.DeployedService name,
                 Set<String> tools,
                 Set<String> toolsAdded,
                 Set<String> toolsRemoved,
@@ -262,8 +264,13 @@ public class ToolDecoratorInterpreter
 
             public List<ToolDecorator.McpServerToolStateChange> getToolStateChanges() {
                 List<ToolDecorator.McpServerToolStateChange> changes = new ArrayList<>();
-                StreamUtil.toStream(toAddTools).forEach(c -> changes.add(new ToolDecorator.McpServerToolStateChange.AddTool(c)));
-                StreamUtil.toStream(toRemoveTools).forEach(c -> changes.add(new ToolDecorator.McpServerToolStateChange.RemoveTool(c)));
+                var p = MapFunctions.CollectMap(StreamUtil.toStream(providers)
+                        .flatMap(tp -> Arrays.stream(tp.getToolCallbacks()))
+                        .map(t -> Map.entry(t.getToolDefinition().name(), t)));
+                StreamUtil.toStream(toAddTools)
+                        .forEach(c -> changes.add(new ToolDecorator.McpServerToolStateChange.AddTool(name, c, new StaticToolCallbackProvider(p.get(c.tool().name())))));
+                StreamUtil.toStream(toRemoveTools)
+                        .forEach(c -> changes.add(new ToolDecorator.McpServerToolStateChange.RemoveTool(name, c)));
                 return changes;
             }
         }
@@ -342,7 +349,7 @@ public class ToolDecoratorInterpreter
                         }
                     }
 
-                    this.toolStates.addAllUpdates(d.newMcpServerState());
+                    this.toolStates.executeChangesOnToolState(d);
 
                     if (!d.stateChanges().isEmpty())
                         this.toolStates.notifyToolsListChanged();
@@ -361,7 +368,7 @@ public class ToolDecoratorInterpreter
             }
             case ToolDecoratorEffect.UpdateMcpServerWithToolChanges toolChanges -> {
                 yield this.toolStates.doOverWriteState(() -> {
-                    toolStates.executeToolStateChanges(toolChanges.toolStateChanges);
+                    toolStates.executeServerToolStateChanges(toolChanges.toolStateChanges);
                     return Free.pure(new ToolDecoratorResult.UpdatedToolMcp(toolChanges.toolStateChanges));
                 });
             }

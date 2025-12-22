@@ -105,7 +105,6 @@ class ToolSearchToolDecoratorTest {
         assertThat(result.addedSchema()).isNotBlank();
         assertThat(result.addErr()).isBlank();
         assertThat(toolStates.contains(server.name())).isTrue();
-        verify(mcpSyncServerDelegate).notifyToolsListChanged();
     }
 
     @Test

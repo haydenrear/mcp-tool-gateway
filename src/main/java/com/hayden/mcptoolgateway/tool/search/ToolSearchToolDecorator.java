@@ -121,12 +121,9 @@ public class ToolSearchToolDecorator implements ToolDecorator {
                 toRedeploy,
                 this.ts.copyOf().get(i.tool())));
 
-        this.ts.addUpdateToolState(i.tool(), r.newToolState());
+        this.ts.addUpdateToolState(i.tool(), r.newToolState().toBuilder().isSearchAddedTool(true).build());
 
         if (r.didToolListChange()) {
-            var redeployed = this.decorate(new ToolDecoratorState(this.ts.copyOf(), new ArrayList<>()));
-            this.ts.addUpdateToolState(redeployed);
-            ts.notifyToolsListChanged();
             var addedSchema = tryParseSchema(r);
             return new SearchModels.SearchResult(
                     i.tool(),

@@ -40,7 +40,7 @@ public class RedeployToolDecorator implements ToolDecorator {
     @Override
     public ToolDecoratorToolStateUpdate decorate(ToolDecoratorState newMcpServerState) {
         if (newMcpServerState.newMcpServerState().values().stream().anyMatch(c -> !CollectionUtils.isEmpty(c.added())))  {
-            throw new RuntimeException("Attempted to do toSearch with tool state deployed with multiple replicas. Not allowed.");
+            throw new RuntimeException("Attempted to do redeploy with tool state deployed with multiple replicas. Not allowed.");
         }
         return new ToolDecoratorToolStateUpdate.AddToolToolStateUpdate(RedeployFunction.REDEPLOY_MCP_SERVER, getRedeploy(newMcpServerState.newMcpServerState()));
     }
@@ -53,7 +53,7 @@ public class RedeployToolDecorator implements ToolDecorator {
     public boolean isEnabled() {
         var is =  toolGatewayConfigProperties.isEnableRedeployable();
         if (!is)
-            log.info("Skipping addition of toSearch tools as enable redeployable property set to false.");
+            log.info("Skipping addition of redeploy tools as enable redeployable property set to false.");
 
         return is;
     }
@@ -147,9 +147,9 @@ public class RedeployToolDecorator implements ToolDecorator {
                         .description("""
                                 # Redeploy Tool Description
                                 
-                                This tool provides the ability to toSearch the underlying MCP servers and the underlying tools.
-                                Errors will be provided below so that you can make changes and toSearch again.
-                                If there is an issue with toSearch and the tool is able, then it will be rolled back to the previous version
+                                This tool provides the ability to redeploy the underlying MCP servers and the underlying tools.
+                                Errors will be provided below so that you can make changes and redeploy again.
+                                If there is an issue with redeploy and the tool is able, then it will be rolled back to the previous version
                                 and the error will be provided below.
                                 
                                 # Underlying MCP Servers and Tools that can be Redeployed, Along With Information About Deployments

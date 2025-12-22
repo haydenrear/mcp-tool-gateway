@@ -5,6 +5,7 @@ import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.free.Free;
 import io.modelcontextprotocol.client.transport.AuthAwareHttpSseClientTransport;
+import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
@@ -45,6 +46,7 @@ public class ToolDecoratorService {
             List<ToolCallbackProvider> toolCallbackProviders,
             ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor lastDeploy,
             ToolGatewayConfigProperties.DecoratedMcpServer deployableMcpServer,
+            boolean isSearchAddedTool,
             List<AddClient> added,
             List<BeforeToolCallback> beforeToolCallback,
             List<AfterToolCallback> afterToolCallback) {
@@ -52,6 +54,7 @@ public class ToolDecoratorService {
         public McpServerToolState initialize() {
             var beforeToolCallback = this.beforeToolCallback;
             var afterToolCallback = this.afterToolCallback;
+            var tcp = this.toolCallbackProviders;
             var added = this.added;
 
             if (beforeToolCallback != null && afterToolCallback != null && added != null)
@@ -59,6 +62,8 @@ public class ToolDecoratorService {
 
             if (beforeToolCallback == null)
                 beforeToolCallback = new ArrayList<>();
+            if (tcp == null)
+                tcp = new ArrayList<>();
             if (afterToolCallback == null)
                 afterToolCallback = new ArrayList<>();
             if (added == null)
@@ -67,7 +72,9 @@ public class ToolDecoratorService {
             return this.toBuilder()
                     .beforeToolCallback(beforeToolCallback)
                     .afterToolCallback(afterToolCallback)
+                    .toolCallbackProviders(tcp)
                     .added(added)
+                    .isSearchAddedTool(isSearchAddedTool)
                     .build();
         }
     }
@@ -83,6 +90,11 @@ public class ToolDecoratorService {
     public void init() {
         if (this.toolGatewayConfigProperties.isStartMcpServerOnInitialize())
             doPerformInit();
+    }
+
+
+    public boolean isOnlyAddable(McpServerFeatures.AsyncToolSpecification s) {
+        return toolStates.isOnlyAddable(s.tool().name());
     }
 
     public void doPerformInit() {

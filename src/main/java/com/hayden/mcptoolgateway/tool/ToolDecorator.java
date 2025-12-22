@@ -1,6 +1,8 @@
 package com.hayden.mcptoolgateway.tool;
 
+import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import io.modelcontextprotocol.server.McpServerFeatures;
+import org.springframework.ai.tool.ToolCallbackProvider;
 
 import java.util.List;
 import java.util.Map;
@@ -9,13 +11,20 @@ public interface ToolDecorator {
 
     sealed interface McpServerToolStateChange {
 
-        record RemoveTool(String toRemove)  implements McpServerToolStateChange {}
+        record RemoveTool(
+                McpServerToolStates.DeployedService server,
+                String toRemove)  implements McpServerToolStateChange {}
 
-        record AddTool(McpServerFeatures.SyncToolSpecification toAddTools)  implements McpServerToolStateChange {}
+        record AddTool(
+                McpServerToolStates.DeployedService server,
+                McpServerFeatures.SyncToolSpecification toAddTools,
+                ToolCallbackProvider toolCallbackProvider) implements McpServerToolStateChange {
+        }
 
-        record AddCallbacks(String name,
-                            List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback,
-                            List<ToolDecoratorService.AfterToolCallback> afterToolCallback)
+        record AddCallbacks(
+                McpServerToolStates.DeployedService name,
+                List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback,
+                List<ToolDecoratorService.AfterToolCallback> afterToolCallback)
                 implements McpServerToolStateChange {}
 
     }
@@ -43,7 +52,7 @@ public interface ToolDecorator {
                 List<ToolDecoratorService.AfterToolCallback> after) implements ToolDecoratorToolStateUpdate {
             @Override
             public List<McpServerToolStateChange> toolStateChanges() {
-                return List.of(new McpServerToolStateChange.AddCallbacks(name, before, after));
+                return List.of(new McpServerToolStateChange.AddCallbacks(new McpServerToolStates.DeployedService(name, ToolDecoratorService.SYSTEM_ID), before, after));
             }
         }
 

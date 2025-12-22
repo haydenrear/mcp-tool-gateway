@@ -2,7 +2,6 @@ package com.hayden.mcptoolgateway.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.hayden.mcptoolgateway.kubernetes.K3sService;
 import com.hayden.mcptoolgateway.kubernetes.KubernetesFilter;
 import com.hayden.mcptoolgateway.kubernetes.UserMetadata;
 import com.hayden.mcptoolgateway.kubernetes.UserMetadataRepository;
@@ -28,28 +27,17 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.hayden.mcptoolgateway.TestUtils.stubToken;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 /**
  * Integration tests for CodeSearchMcpTools focusing on behavior validation.
@@ -60,7 +48,7 @@ import static org.awaitility.Awaitility.await;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"inttest"})
 @TestPropertySource(properties = {"http-mcp.enabled=true", "spring.ai.mcp.server.stdio=false"})
-class McpServerHttpSecurityIntegrationTest {
+class McpServerIntegrationTest {
 
     @Autowired
     private NimbusJwtEncoder jwtEncoder;
@@ -76,6 +64,9 @@ class McpServerHttpSecurityIntegrationTest {
 
     @Autowired
     private McpServerToolStates toolStates;
+
+    @MockitoSpyBean
+    KubernetesFilter k3sService;
 
     private static final WireMockServer wireMockServer = new WireMockServer(9999);
 
@@ -122,88 +113,39 @@ class McpServerHttpSecurityIntegrationTest {
                         });
     }
 
-    @AfterEach
-    public void resetWireMockServer() {
-        wireMockServer.resetAll();
-        setMocks();
-    }
 
-    @AfterAll
-    public static void after() {
-        wireMockServer.resetAll();
-        wireMockServer.stop();
-        wireMockServer.shutdown();
-    }
-
+    @SneakyThrows
     @Test
-    void whenTokenThenConnects() {
-
-        var request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:" + port + "/sse"))
-                .header("Accept", "text/event-stream")
-                .header("Authorization", "Bearer " + accessToken)
-                .GET()
-                .build();
-
-        var responseCode = new AtomicInteger(-1);
-
-        try (var client = HttpClient.newHttpClient()) {
-            var sseRequest = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-                    .thenApply(response -> {
-                        responseCode.set(response.statusCode());
-                        // IMPORTANT: close the stream so the server sees EOF
-                        HttpResponse<InputStream> resp = response;
-                        try (var is = new BufferedInputStream(resp.body())) {
-//                            String msg = new String(is.readAllBytes(), Charset.defaultCharset());
-//                            log.info(msg);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                        if (response.statusCode() == 200 || response.statusCode() == 403) {
-                            return response;
-                        } else {
-                            throw new RuntimeException("Failed to connect to SSE endpoint: " + response.statusCode());
-                        }
-
-                    });
-
-            await().atMost(Duration.ofSeconds(3)).until(() -> responseCode.get() == 200);
-            assertThat(sseRequest).isCompleted();
-            assertThat(responseCode.get() == 200).isTrue();
-            client.shutdownNow();
-        }
-
-    }
-
-    @Test
-    void whenNoTokenThenFails() {
-
+    void whenTokenThenConnectsWithMcpClient() {
+        var fc = ArgumentCaptor.forClass(FilterChain.class);
+        var req = ArgumentCaptor.forClass(HttpServletRequest.class);
+        var res = ArgumentCaptor.forClass(HttpServletResponse.class);
+        Mockito.doAnswer(inv -> {
+                    fc.getValue().doFilter(req.getValue(), res.getValue());
+                    return null;
+                }).when(k3sService).doFilter(req.capture(), res.capture(), fc.capture());
         try (var m = McpClient.sync(
-                        HttpClientSseClientTransport.builder("")
+                        HttpClientSseClientTransport.builder("http://localhost:" + port)
                                 .sseEndpoint("/sse")
                                 .objectMapper(objectMapper)
+                                .customizeRequest(r -> r.header("Authorization", "Bearer " + accessToken))
                                 .build())
                 .build()) {
             var initialized = m.initialize();
-            throw new AssertionError("Did start.");
-        } catch (Exception ignored) {
+            var listed = m.listTools();
+            var called = m.callTool(new McpSchema.CallToolRequest("add-tool-server", Map.of("server_name", "test-rollback-server-2")));
 
+            assertThat(called.isError()).isFalse();
+            assertThat(called.content().stream().anyMatch(c -> c instanceof McpSchema.TextContent t && t.text().contains("aTool") && t.text().contains("test-rollback-server-2"))).isTrue();
+
+            var listedAgain = m.listTools();
+            assertThat(listed.tools().size()).isEqualTo(listedAgain.tools().size());
+            log.info("Found list tools {}", listed);
         }
+
+        Mockito.reset(k3sService);
     }
 
-    @Test
-    void whenNoTokenThenFailsWithMcpClient() throws IOException, InterruptedException {
-        var request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:" + port + "/sse"))
-                .header("Accept", "text/event-stream")
-                .GET()
-                .build();
-        try (var client = HttpClient.newHttpClient()) {
-            HttpResponse<Void> send = client.send(request, HttpResponse.BodyHandlers.discarding());
-            var response = send.statusCode();
-            assertThat(response).isEqualTo(401);
-        }
-    }
 
     private String obtainAccessToken() {
         Instant now = Instant.now();

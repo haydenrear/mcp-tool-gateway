@@ -211,6 +211,7 @@ class SetClients {
             }
 
             return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
+                    .name(service)
                     .toolsRemoved(removed)
                     .toolState(mcpServerToolState)
                     .tools(tools)
@@ -219,6 +220,7 @@ class SetClients {
         }
 
         return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
+                .name(service)
                 .tools(tools)
                 .toolState(mcpServerToolState)
                 .err(m.getMessage())
@@ -260,6 +262,10 @@ class SetClients {
 
     public McpServerToolStates.@NotNull DeployedService getAuthDeployedService(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return new McpServerToolStates.DeployedService(deployService, identityResolver.resolveUserOrDefault(mcpServerToolState));
+    }
+
+    public void addCallbacks(ToolDecorator.McpServerToolStateChange.AddCallbacks addCallbacks) {
+        throw new RuntimeException("Not implemented!");
     }
 
 

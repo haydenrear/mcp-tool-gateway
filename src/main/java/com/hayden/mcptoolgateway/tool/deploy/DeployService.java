@@ -253,7 +253,7 @@ public class DeployService {
                             ))
                             .orElseGet(() -> new ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper(
                                     DeployModels.RedeployResult.builder()
-                                            .deployMessage("Performed toSearch for %s: %s.".formatted(redeploy.deployService(), r))
+                                            .deployMessage("Performed redeploy for %s: %s.".formatted(redeploy.deployService(), r))
                                             .deployLog(r.log())
                                             .deployState(successDeployState)
                                             .rollbackState(successRollbackState)
@@ -283,24 +283,24 @@ public class DeployService {
         } else if (ts.noMcpClient(redeploy.deployService())) {
             var err = ts.getError(redeploy.deployService());
             if (err != null) {
-                return Optional.of("Error connecting to MCP client for %s after toSearch: %s".formatted(redeploy, err));
+                return Optional.of("Error connecting to MCP client for %s after redeploy: %s".formatted(redeploy, err));
             } else {
-                return Optional.of("Unknown connecting to MCP client for %s after toSearch".formatted(redeploy));
+                return Optional.of("Unknown connecting to MCP client for %s after redeploy".formatted(redeploy));
             }
         } else if (ts.clientExistsNotInitialized(redeploy.deployService())) {
-            return Optional.of("Unknown connecting to MCP client for %s after toSearch - client was not initialized.".formatted(redeploy));
+            return Optional.of("Unknown connecting to MCP client for %s after redeploy - client was not initialized.".formatted(redeploy));
         } else {
             return Optional.empty();
         }
     }
 
     private static @NotNull String redeployFailedErr(ToolModels.Redeploy i, RedeployDescriptor r) {
-        return "Error performing toSearch of %s with error:\n\n%s.".formatted(i.deployService(), r.err());
+        return "Error performing redeploy of %s with error:\n\n%s.".formatted(i.deployService(), r.err());
     }
 
     public static @NotNull String performedRedeployResultRollback(ToolModels.Redeploy i,
                                                                   RedeployDescriptor redeployResult) {
-        return "Tried to toSearch %s, toSearch failed with err %s, and rolled back to previous version. Please see log and err."
+        return "Tried to redeploy %s, redeploy failed with err %s, and rolled back to previous version. Please see log and err."
                 .formatted(i.deployService(), redeployResult.err());
     }
 

@@ -10,8 +10,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 
 @Configuration
-@Profile("test")
-class TestConfig {
+@Profile("inttest")
+class IntTestConfig {
 
     @Bean
     @Primary
@@ -19,15 +19,4 @@ class TestConfig {
         return Mockito.mock(RedeployFunction.class);
     }
 
-    @Bean
-    @Primary
-    public McpSyncClient mcpSyncClient() {
-        return Mockito.mock(McpSyncClient.class);
-    }
-
-    @Bean
-    @Primary
-    public McpSyncServerDelegate mcpSyncServerDelegate() {
-        return Mockito.mock(McpSyncServerDelegate.class);
-    }
 }

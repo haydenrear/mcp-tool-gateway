@@ -1,0 +1,55 @@
+logging.config: classpath:logback.xml
+
+authorization-server:
+  base-uri: http://localhost:9999
+  credits-path: /api/v1/credits/get
+  credits-decrement-path: /api/v1/credits/get-and-decrement
+
+gateway:
+  deployable-mcp-servers:
+    test-rollback-server:
+      stdio: true
+      name: test-rollback-server
+      command: echo "deploy command"
+      directory: classpath:.cache
+      copy-to-artifact-path: classpath:test_work
+      copy-from-artifact-path: classpath:test_work/test-binary.jar
+  addable-mcp-servers:
+    test-rollback-server-2:
+      stdio: true
+      name: test-rollback-server-2
+      command: echo "add command"
+      directory: classpath:.cache
+      copy-to-artifact-path: classpath:test_work
+      copy-from-artifact-path: classpath:test_work/test-binary.jar
+  mcp-stdio-servers-json-location: file:{{BUILD_DIR}}/resources/test/test-stdio-mcp-servers/servers-test-rollback.json
+  fail-on-mcp-client-init: false
+  artifact-cache: classpath:.cache
+  start-mcp-server-on-initialize: true
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+  lifecycle:
+    timeout-per-shutdown-phase: 1s
+  security:
+    oauth2:
+      client:
+        registration:
+          cdc-oauth2-client:
+            provider: cdc-oauth2-client
+            client-id: cdc-oauth2-client
+            client-secret: 234234lkjsldkdjfsd
+            scope: profile, email
+            authorization-grant-type: client_credentials
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-authentication-method: client_secret_post
+            # if your provider doesn't have a userinfo endpoint, omit it and map from ID token instead
+            # (but then you really want OIDC)
+        provider:
+          cdc-oauth2-client:
+            authorization-uri: http://localhost:9999/oauth2/authorize
+            token-uri: http://localhost:9999/oauth2/token
+            user-info-uri: http://localhost:9999/userinfo
+            user-name-attribute: sub
+            jwk-set-uri: http://localhost:9999/oauth2/jwks

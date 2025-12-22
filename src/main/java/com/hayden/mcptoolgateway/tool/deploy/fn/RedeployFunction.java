@@ -5,7 +5,7 @@ import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 
 public interface RedeployFunction {
 
-    String REDEPLOY_MCP_SERVER = "toSearch-mcp-server";
+    String REDEPLOY_MCP_SERVER = "redeploy-mcp-server";
 
     ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor performRedeploy(ToolGatewayConfigProperties.DecoratedMcpServer name);
 
