@@ -59,7 +59,7 @@ public class KubernetesFilter extends OncePerRequestFilter {
         }
 
         var a = toolDecoratorService
-                .createAddClient(new ToolDecoratorService.AddClient("cdc", user.get(), host));
+                .createAddTool(new ToolDecoratorService.AddClient("cdc", user.get(), host));
 
         if (!a.success()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Failed to resolve MCP client - %s.".formatted(Optional.ofNullable(a.underlying()).map(ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult::err).orElse("unknown error.")));

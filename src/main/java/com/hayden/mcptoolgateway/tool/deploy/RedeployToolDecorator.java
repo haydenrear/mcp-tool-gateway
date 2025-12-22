@@ -176,8 +176,10 @@ public class RedeployToolDecorator implements ToolDecorator {
         ts.notifyToolsListChanged();
 
         return ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(Lists.newArrayList(redeployToolCallbackProvider))
-                .build();
+                .build()
+                .initialize();
     }
 
     DeployModels.RedeployResult doRedeploy(ToolModels.Redeploy i,

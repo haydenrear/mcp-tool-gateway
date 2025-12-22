@@ -65,10 +65,10 @@ spring:
     mcp:
       server:
         stdio: false
-        enabled: true
         type: sync
         name: "mcp-tool-gateway"
         version: 1.0.0
+        enabled: false
       client:
         name: replace-name
 

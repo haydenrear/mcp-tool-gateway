@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -35,6 +36,7 @@ public class ToolGatewayConfigProperties {
         }
 
         private String jwtToken;
+        private boolean stdio = true;
         private String s2sIdentity;
         private String username;
         private String password;
@@ -65,7 +67,9 @@ public class ToolGatewayConfigProperties {
         }
     }
 
-    Map<String, DecoratedMcpServer> deployableMcpServers;
+    Map<String, DecoratedMcpServer> deployableMcpServers = new HashMap<>();
+
+    Map<String, DecoratedMcpServer> addableMcpServers = new HashMap<>();
 
     Path artifactCache = Paths.get(System.getProperty("user.home"), ".cache", "tool-gateway");
 

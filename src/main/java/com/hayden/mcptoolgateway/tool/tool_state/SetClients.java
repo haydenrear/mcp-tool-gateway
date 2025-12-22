@@ -82,6 +82,11 @@ class SetClients {
         return clientHasError(clientName) ? syncClients.get(clientName).error() : "Client has no error.";
     }
 
+    boolean clientHasServer(String client, String toolName) {
+        return syncClients.get(client).client().listTools().tools()
+                .stream().anyMatch(t -> t.name().equals(toolName));
+    }
+
     boolean isMcpServerAvailable(String key) {
         try {
             var isInit = Optional.ofNullable(this.syncClients.get(key))
@@ -206,6 +211,7 @@ class SetClients {
             }
 
             return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
+                    .name(service)
                     .toolsRemoved(removed)
                     .toolState(mcpServerToolState)
                     .tools(tools)
@@ -214,6 +220,7 @@ class SetClients {
         }
 
         return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
+                .name(service)
                 .tools(tools)
                 .toolState(mcpServerToolState)
                 .err(m.getMessage())
@@ -255,6 +262,10 @@ class SetClients {
 
     public McpServerToolStates.@NotNull DeployedService getAuthDeployedService(String deployService, ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return new McpServerToolStates.DeployedService(deployService, identityResolver.resolveUserOrDefault(mcpServerToolState));
+    }
+
+    public void addCallbacks(ToolDecorator.McpServerToolStateChange.AddCallbacks addCallbacks) {
+        throw new RuntimeException("Not implemented!");
     }
 
 
@@ -523,24 +534,10 @@ class SetClients {
         }
 
         private boolean isStdio(McpSyncClient client) {
-            try {
-                var delegate = client.getClass().getDeclaredField("delegate");
-                ReflectionUtils.makeAccessible(delegate);
-                McpAsyncClient asyncClient = (McpAsyncClient) ReflectionUtils.getField(delegate, client);
-                var clientTransportField = McpAsyncClient.class.getDeclaredField("transport");
-                ReflectionUtils.makeAccessible(clientTransportField);
-                var clientTransport = (McpClientTransport) ReflectionUtils.getField(clientTransportField, asyncClient);
-                return clientTransport instanceof StdioClientTransport;
-            } catch (NoSuchFieldException e) {
-                log.error("Could not get delegate field.", e);
-                return true;
-            } catch (Exception e){
-                log.error("Could not get delegate field.", e);
-                return true;
-            }
+            if (toolState == null)
+                throw new RuntimeException("Could not find tool state!");
+
+            return toolState.deployableMcpServer().isStdio();
         }
-
-
-
     }
 }

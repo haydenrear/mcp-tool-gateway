@@ -172,9 +172,11 @@ public class DeployService {
                                 .deployState(deployState)
                                 .build(),
                         ToolDecoratorService.McpServerToolState.builder()
+                                .added(new ArrayList<>())
                                 .toolCallbackProviders(tc.providers())
                                 .lastDeploy(r)
-                                .build(),
+                                .build()
+                                .initialize(),
                         redeploy,
                         tc.getToolStateChanges()
                 )));
@@ -241,9 +243,11 @@ public class DeployService {
                                             .deployErr(r.err())
                                             .build(),
                                     ToolDecoratorService.McpServerToolState.builder()
+                                            .added(new ArrayList<>())
                                             .toolCallbackProviders(setSyncClientResult.providers())
                                             .lastDeploy(r)
-                                            .build(),
+                                            .build()
+                                            .initialize(),
                                     redeploy,
                                     setSyncClientResult.getToolStateChanges()
                             ))
@@ -259,9 +263,11 @@ public class DeployService {
                                             .deployErr(r.err())
                                             .build(),
                                     ToolDecoratorService.McpServerToolState.builder()
+                                            .added(new ArrayList<>())
                                             .toolCallbackProviders(setSyncClientResult.providers())
                                             .lastDeploy(r)
-                                            .build(),
+                                            .build()
+                                            .initialize(),
                                     redeploy,
                                     setSyncClientResult.getToolStateChanges())
                             );

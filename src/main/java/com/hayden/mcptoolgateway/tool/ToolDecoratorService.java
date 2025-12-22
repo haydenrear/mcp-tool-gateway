@@ -5,6 +5,7 @@ import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.free.Free;
 import io.modelcontextprotocol.client.transport.AuthAwareHttpSseClientTransport;
+import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
@@ -45,14 +46,41 @@ public class ToolDecoratorService {
             List<ToolCallbackProvider> toolCallbackProviders,
             ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor lastDeploy,
             ToolGatewayConfigProperties.DecoratedMcpServer deployableMcpServer,
+            boolean isSearchAddedTool,
             List<AddClient> added,
             List<BeforeToolCallback> beforeToolCallback,
-            List<AfterToolCallback> afterToolCallback) { }
+            List<AfterToolCallback> afterToolCallback) {
+
+        public McpServerToolState initialize() {
+            var beforeToolCallback = this.beforeToolCallback;
+            var afterToolCallback = this.afterToolCallback;
+            var tcp = this.toolCallbackProviders;
+            var added = this.added;
+
+            if (beforeToolCallback != null && afterToolCallback != null && added != null)
+                return this;
+
+            if (beforeToolCallback == null)
+                beforeToolCallback = new ArrayList<>();
+            if (tcp == null)
+                tcp = new ArrayList<>();
+            if (afterToolCallback == null)
+                afterToolCallback = new ArrayList<>();
+            if (added == null)
+                added = new ArrayList<>();
+
+            return this.toBuilder()
+                    .beforeToolCallback(beforeToolCallback)
+                    .afterToolCallback(afterToolCallback)
+                    .toolCallbackProviders(tcp)
+                    .added(added)
+                    .isSearchAddedTool(isSearchAddedTool)
+                    .build();
+        }
+    }
 
     @Autowired
     ToolGatewayConfigProperties toolGatewayConfigProperties;
-    @Autowired
-    List<ToolDecorator> toolDecorators;
     @Autowired
     McpServerToolStates toolStates;
     @Autowired
@@ -64,6 +92,11 @@ public class ToolDecoratorService {
             doPerformInit();
     }
 
+
+    public boolean isOnlyAddable(McpServerFeatures.AsyncToolSpecification s) {
+        return toolStates.isOnlyAddable(s.tool().name());
+    }
+
     public void doPerformInit() {
         toolStates.doPerformInitialization(() -> {
             buildTools();
@@ -73,13 +106,55 @@ public class ToolDecoratorService {
 
     public record AddClient(String serverName, String userName, String hostName)  {}
 
+    public record AddToolSearch(String name, String userName)  {}
+
     public record AddSyncClientResult(boolean success, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult underlying) {
         public AddSyncClientResult(boolean success) {
             this(success, null);
         }
     }
 
-    public AddSyncClientResult createAddClient(AddClient serverName) {
+    public AddSyncClientResult createAddServer(ToolDecoratorInterpreter.ToolDecoratorEffect.DoToolSearch add) {
+        return createAddServer(new AddToolSearch(add.toSearch().tool(), null));
+    }
+
+    public AddSyncClientResult createAddServer(AddToolSearch add) {
+        String resolvedUser = Optional.ofNullable(add.userName).orElse(SYSTEM_ID);
+        String name = Objects.equals(resolvedUser, SYSTEM_ID)
+                ? add.name
+                : add.name + resolvedUser;
+
+        var a = this.toolGatewayConfigProperties.getAddableMcpServers().get(add.name);
+
+        if (a == null)
+            return new AddSyncClientResult(false);
+
+        var setE = toolStates.setMcpClient(
+                new McpServerToolStates.DeployedService(name, resolvedUser),
+                Optional.ofNullable(this.toolStates.copyOf().get(name))
+                        .orElse(
+                                McpServerToolState.builder()
+                                        .deployableMcpServer(a)
+                                        .build()
+                                        .initialize()));
+
+        var set = Free.parse(setE, toolDecoratorInterpreter);
+
+        if (set instanceof ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult m) {
+            if (m.wasSuccessful())
+                this.toolStates.addClient(new AddClient(add.name, name, null));
+
+            Optional.of(m)
+                    .map(ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult::toolState)
+                    .ifPresent(toolState -> this.toolStates.addUpdateToolState(name, toolState));
+
+            return new AddSyncClientResult(m.wasSuccessful(), m);
+        }
+
+        return new AddSyncClientResult(false);
+    }
+
+    public AddSyncClientResult createAddTool(AddClient serverName) {
         String name = serverName.serverName + serverName.userName;
 
         if (this.toolStates.contains(name)) {
@@ -101,7 +176,7 @@ public class ToolDecoratorService {
                 this.toolStates.addClient(serverName);
 
             Optional.of(m)
-                    .map(s -> McpServerToolState.builder().toolCallbackProviders(m.providers()).build())
+                    .map(ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult::toolState)
                     .ifPresent(toolState -> this.toolStates.addUpdateToolState(name, toolState));
             return new AddSyncClientResult(m.wasSuccessful(), m);
         }
@@ -120,8 +195,10 @@ public class ToolDecoratorService {
                         var m = toolStates.setMcpClient(
                                 new McpServerToolStates.DeployedService(d.getKey(), SYSTEM_ID),
                                 McpServerToolState.builder()
+                                        .added(new ArrayList<>())
                                         .deployableMcpServer(d.getValue())
-                                        .build());
+                                        .build()
+                                        .initialize());
                         var toolDecoratorResult = Free.parse(m, toolDecoratorInterpreter);
 
                         if (toolDecoratorResult instanceof ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult s) {

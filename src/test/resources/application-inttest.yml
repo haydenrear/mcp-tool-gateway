@@ -25,7 +25,7 @@ gateway:
   mcp-stdio-servers-json-location: file:{{BUILD_DIR}}/resources/test/test-stdio-mcp-servers/servers-test-rollback.json
   fail-on-mcp-client-init: false
   artifact-cache: classpath:.cache
-  start-mcp-server-on-initialize: false
+  start-mcp-server-on-initialize: true
 spring:
   main:
     allow-bean-definition-overriding: true

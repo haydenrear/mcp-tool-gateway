@@ -100,7 +100,7 @@ class ToolDecoratorRedeployTests {
 
         // Then
         verify(mcpSyncServer, atLeastOnce()).addTool(any());
-        verify(mcpSyncServer).notifyToolsListChanged();
+        verify(mcpSyncServer, times(1)).notifyToolsListChanged();
     }
 
     @Test
@@ -138,8 +138,10 @@ class ToolDecoratorRedeployTests {
 
         Map<String, ToolDecoratorService.McpServerToolState> mockStates = new HashMap<>();
         ToolDecoratorService.McpServerToolState testState = ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(new ArrayList<>())
-                .build();
+                .build()
+                .initialize();
         mockStates.put("test-rollback-server", testState);
 
         // When
@@ -162,8 +164,10 @@ class ToolDecoratorRedeployTests {
                         .toolsRemoved(new HashSet<>())
                         .build())
                 .newToolState(ToolDecoratorService.McpServerToolState.builder()
+                        .added(new ArrayList<>())
                         .toolCallbackProviders(new ArrayList<>())
-                        .build())
+                        .build()
+                        .initialize())
                 .redeploy(redeployRequest)
                 .build();
 
@@ -222,8 +226,10 @@ class ToolDecoratorRedeployTests {
                         .tools(new HashSet<>())
                         .build())
                 .newToolState(ToolDecoratorService.McpServerToolState.builder()
+                        .added(new ArrayList<>())
                         .toolCallbackProviders(new ArrayList<>())
-                        .build())
+                        .build()
+                        .initialize())
                 .redeploy(redeployRequest)
                 .build();
 
@@ -253,12 +259,14 @@ class ToolDecoratorRedeployTests {
     void shouldGenerateCorrectErrorInfoForFailedServers() {
         // Given
         ToolDecoratorService.McpServerToolState failedState = ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(null) // Empty providers
                 .lastDeploy(ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                         .isSuccess(false)
                         .err("Deploy failed")
                         .build())
-                .build();
+                .build()
+                .initialize();
 
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.err(new DynamicMcpToolCallbackProvider.McpError("Connection error")));
@@ -279,8 +287,10 @@ class ToolDecoratorRedeployTests {
     void shouldHandleToolStateWithNoProviders() {
         // Given
         ToolDecoratorService.McpServerToolState emptyState = ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(new ArrayList<>())
-                .build();
+                .build()
+                .initialize();
 
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
@@ -303,12 +313,14 @@ class ToolDecoratorRedeployTests {
     void shouldParseErrorCorrectlyForVariousFailureScenarios() {
         // Given
         ToolDecoratorService.McpServerToolState stateWithDeployError = ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(new ArrayList<>())
                 .lastDeploy(ToolDecoratorInterpreter.ToolDecoratorResult.RedeployDescriptor.builder()
                         .isSuccess(false)
                         .err("Deployment error")
                         .build())
-                .build();
+                .build()
+                .initialize();
 
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.err(new DynamicMcpToolCallbackProvider.McpError("Sync error")));
@@ -316,7 +328,10 @@ class ToolDecoratorRedeployTests {
         // Simulate client has error state
         setClients.createSetClientErr("test-rollback-server", 
                 new DynamicMcpToolCallbackProvider.McpError("Sync error"), 
-                ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(new ArrayList<>()).build());
+                ToolDecoratorService.McpServerToolState.builder()
+                        .added(new ArrayList<>())
+                        .toolCallbackProviders(new ArrayList<>()).build()
+                        .initialize());
 
         // When
         StringBuilder error = redeployToolDecorator.parseErr(stateWithDeployError, "test-rollback-server");
@@ -340,8 +355,10 @@ class ToolDecoratorRedeployTests {
                         .rollbackState(DeployModels.DeployState.ROLLBACK_FAIL)
                         .build())
                 .newToolState(ToolDecoratorService.McpServerToolState.builder()
+                        .added(new ArrayList<>())
                         .toolCallbackProviders(new ArrayList<>())
-                        .build())
+                        .build()
+                        .initialize())
                 .redeploy(redeployRequest)
                 .build();
 
@@ -361,13 +378,16 @@ class ToolDecoratorRedeployTests {
         toolDecoratorService.doPerformInit();
 
         mcpServerToolStates.addUpdateToolState(testServer.name(),
-                ToolDecoratorService.McpServerToolState.builder().toolCallbackProviders(new ArrayList<>()).deployableMcpServer(testServer).build());
+                ToolDecoratorService.McpServerToolState.builder()
+                        .added(new ArrayList<>())
+                        .toolCallbackProviders(new ArrayList<>()).deployableMcpServer(testServer).build()
+                        .initialize());
 
         // When
         redeployToolDecorator.doRedeploy(redeployRequest, testServer);
 
         // Then
-        verify(mcpSyncServer, atLeast(2)).notifyToolsListChanged(); // Once in init, once after redeploy
+        verify(mcpSyncServer, atLeast(2)).notifyToolsListChanged(); // Once in init, once after toSearch
     }
 
     @Test
@@ -422,6 +442,6 @@ class ToolDecoratorRedeployTests {
 
         // Then
         verify(mcpSyncServer, atLeastOnce()).addTool(any());
-        verify(mcpSyncServer).notifyToolsListChanged();
+        verify(mcpSyncServer, times(2)).notifyToolsListChanged();
     }
 }

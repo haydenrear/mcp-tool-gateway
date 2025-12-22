@@ -33,6 +33,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -159,19 +160,53 @@ public class McpServerToolStates {
         this.mcpServerToolStates.put(name, mcpServerToolState);
     }
 
-    public void addUpdateToolState(Map<String, ToolDecoratorService.McpServerToolState> states) {
+    public void executeChangesOnToolState(ToolDecorator.ToolDecoratorState tds) {
+        var states = tds.newMcpServerState();
         this.mcpServerToolStates.putAll(states);
+
+        for (var s : tds.stateChanges()) {
+            switch(s) {
+                case ToolDecorator.McpServerToolStateChange.AddCallbacks addCallbacks -> {
+                    this.setClients.addCallbacks(addCallbacks);
+                }
+                case ToolDecorator.McpServerToolStateChange.AddTool addTool -> {
+                    getCurrState(addTool, addTool.server(),
+                            currState -> {
+                                currState.toolCallbackProviders()
+                                        .add(addTool.toolCallbackProvider());
+                            });
+                }
+                case ToolDecorator.McpServerToolStateChange.RemoveTool removeTool -> {
+                    getCurrState(removeTool, removeTool.server(), currState -> {
+                        currState.toolCallbackProviders().removeIf(tcp -> Arrays.stream(tcp.getToolCallbacks())
+                                .filter(tc -> tc.getToolDefinition().name().equals(removeTool.toRemove()))
+                                .peek(tc -> log.debug("Removing tool callback {}.", tc.getToolDefinition().name()))
+                                .count() > 0);
+                    });
+
+                }
+            }
+        }
     }
 
-    public void addAllUpdates(Map<String, ToolDecoratorService.McpServerToolState> states) {
-        this.mcpServerToolStates.putAll(states);
+    private void getCurrState(ToolDecorator.McpServerToolStateChange addTool, DeployedService server,
+                                                                 Consumer<ToolDecoratorService.McpServerToolState> toExec) {
+        if (server == null || server.deployService() == null)
+            throw new RuntimeException("did not contained mcp server tool for %s!".formatted(addTool));
+
+        if (!this.mcpServerToolStates.containsKey(server.deployService())) {
+            throw new RuntimeException("%s was not contained in mcp server tool states!".formatted(server.deployService));
+        }
+
+        ToolDecoratorService.McpServerToolState currState = this.mcpServerToolStates.get(server.deployService());
+        toExec.accept(currState);
     }
 
     public void addUpdateToolState(ToolDecorator.ToolDecoratorToolStateUpdate toolDecoratorToolStateUpdate) {
         this.addUpdateToolState(toolDecoratorToolStateUpdate.name(), toolDecoratorToolStateUpdate.toolStates());
     }
 
-    public void executeToolStateChanges(List<ToolDecorator.McpServerToolStateChange> mcpServerToolStateChanges) {
+    public void executeServerToolStateChanges(List<ToolDecorator.McpServerToolStateChange> mcpServerToolStateChanges) {
         mcpServerToolStateChanges
                 .forEach(m -> {
                     switch(m) {
@@ -180,11 +215,10 @@ public class McpServerToolStates {
                         case ToolDecorator.McpServerToolStateChange.RemoveTool removeTool ->
                                 this.syncServerDelegate.removeTool(removeTool.toRemove());
                         case ToolDecorator.McpServerToolStateChange.AddCallbacks(
-                                String name,
+                                DeployedService name,
                                 List<ToolDecoratorService.BeforeToolCallback> beforeToolCallback,
                                 List<ToolDecoratorService.AfterToolCallback> afterToolCallback
                         ) -> {
-                            this.setClients.syncClients.get(name);
                         }
                     }
                 });
@@ -220,6 +254,10 @@ public class McpServerToolStates {
 
     public boolean clientInitialized(String service) {
         return setClients.clientInitialized(service);
+    }
+
+    public boolean clientHasServer(String client, String serverName) {
+        return setClients.clientHasServer(client, serverName);
     }
 
     public String getError(String clientName) {
@@ -260,7 +298,31 @@ public class McpServerToolStates {
         });
     }
 
+    public boolean isOnlyAddable(String name) {
+        var found = this.mcpServerToolStates.values().stream()
+                .filter(m -> m.toolCallbackProviders()
+                        .stream().anyMatch(tcp -> Arrays.stream(tcp.getToolCallbacks()).anyMatch(tc -> tc.getToolDefinition().name().equals(name))))
+                .toList();
+
+        if (found.isEmpty()) {
+            log.error("Found tool requested but not existing in tool states - {} - specifying as missing.", name);
+            return true;
+        }
+
+        if (found.size() == 1) {
+            return found.getFirst().isSearchAddedTool();
+        }
+
+        if(found.stream().allMatch(ToolDecoratorService.McpServerToolState::isSearchAddedTool)) {
+            return true;
+        }
+
+        log.error("Found multiple tools for same name - {} - but some were addable - some weren't - {} - returning is not only addable..", name, found);
+        return false;
+    }
+
     public record DeployedService(String deployService, String id) {
+
         public String clientId() {
             if (Objects.equals(id, ToolDecoratorService.SYSTEM_ID)) {
                 return deployService;
@@ -297,12 +359,13 @@ public class McpServerToolStates {
                                 toolsAdded.add(tc.getToolDefinition().name());
                                 tools.add(tc.getToolDefinition().name());
                             });
-                    log.info("Adding new toolfor callback {}", tcp.toolName().name());
+                    log.info("Adding new tool for callback {}", tcp.toolName().name());
                     providersCreated.add(tcp.provider());
                 }
             }
 
             return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
+                    .name(createNewToolDecorator.deployService())
                     .toolsAdded(toolsAdded)
                     .toolState(createNewToolDecorator.toolState())
                     .toAddTools(toAddTools)
@@ -371,6 +434,7 @@ public class McpServerToolStates {
             }
 
             return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
+                    .name(updatingExistingToolDecorator.deployService())
                     .toolsAdded(toolsAdded)
                     .toolsRemoved(toolsRemoved)
                     .tools(tools)
@@ -487,6 +551,7 @@ public class McpServerToolStates {
         log.error("Error when attempting to retrieve tools: {}", e.getMessage(), e);
         mcpClient.setError(e.getMessage());
         return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
+                .name(deployService)
                 .err(e.getMessage())
                 .toolState(toolState)
                 .build();
@@ -500,6 +565,7 @@ public class McpServerToolStates {
         log.error("Error when attempting to retrieve tools: {}", e.getMessage(), e);
         mcpClient.setError(e.getMessage());
         return ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult.builder()
+                .name(deployService)
                 .toolsRemoved(existing.keySet())
                 .err(e.getMessage())
                 .toolState(toolState)

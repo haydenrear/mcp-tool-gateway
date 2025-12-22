@@ -7,6 +7,7 @@ gateway:
       directory: {{PARENT_DIR}}
       copy-to-artifact-path: {{PROJ_DIR}}/ctx_bin
       copy-from-artifact-path: {{PARENT_DIR}}/test-mcp-server/build/libs/test-mcp-server.jar
+      stdio: true
       mcp-deploy-log: {{PROJ_DIR}}/test-mcp-server.log
   mcp-http-servers-json-location: file:{{BUILD_DIR}}/resources/main/http-mcp-servers/servers-clienttest.json
   mcp-stdio-servers-json-location: file:{{BUILD_DIR}}/resources/main/stdio-mcp-servers/servers-clienttest.json

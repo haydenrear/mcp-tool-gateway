@@ -53,9 +53,11 @@ class SetClientsTest {
         testServer.setHasMany(false);
 
         mockToolState = ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(new ArrayList<>())
                 .deployableMcpServer(testServer)
-                .build();
+                .build()
+                .initialize();
 
         // Ensure directories exist
         Files.createDirectories(testServer.directory());
@@ -228,7 +230,7 @@ class SetClientsTest {
     }
 
     @Test
-    void shouldUpdateExistingToolsCorrectly() throws Exception {
+    void shouldUpdateExistingToolsCorrectly() {
         // Given
         String clientName = "test-rollback-server";
         
@@ -242,8 +244,10 @@ class SetClientsTest {
         when(existingDefinition.name()).thenReturn("test-rollback-server-old-tool");
         
         mockToolState = ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(List.of(existingProvider))
-                .build();
+                .build()
+                .initialize();
 
         // Setup new tools (one new tool, existing one removed)
         McpSchema.Tool newTool = new McpSchema.Tool("new-tool", "A new tool", JsonSchemaGenerator.generateForType(String.class));
@@ -292,8 +296,10 @@ class SetClientsTest {
         when(toolDefinition.name()).thenReturn("existing-tool");
 
         mockToolState = ToolDecoratorService.McpServerToolState.builder()
+                .added(new ArrayList<>())
                 .toolCallbackProviders(List.of(provider))
-                .build();
+                .build()
+                .initialize();
 
         DynamicMcpToolCallbackProvider.McpError error = new DynamicMcpToolCallbackProvider.McpError("Build failed");
 
