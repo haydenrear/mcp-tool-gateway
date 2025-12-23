@@ -91,10 +91,14 @@ public class ToolGatewayConfig {
         try {
             if (!toolGatewayConfigProperties.hasStdioServers())
                 return new HashMap<>();
+
             Map<String, Map<String, McpStdioClientProperties.Parameters>> stdioConnection = new ObjectMapper().readValue(
                     new PathMatchingResourcePatternResolver().getResource(toolGatewayConfigProperties.mcpStdioServersJsonLocation)
                             .getContentAsByteArray(),
                     new TypeReference<>() {});
+
+            if (stdioConnection.isEmpty())
+                return new HashMap<>();
 
             Map<String, McpStdioClientProperties.Parameters> remove = Optional.ofNullable(stdioConnection.remove("mcpServers"))
                     .orElseGet(() -> stdioConnection.remove("mcp-server"));
