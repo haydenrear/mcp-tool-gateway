@@ -1,0 +1,50 @@
+authorization-server:
+  base-uri: http://cdc-commit-diff-context-authorization:8080
+
+logging.config: classpath:logback-mcp-tool-gateway.xml
+
+gateway:
+  fail-on-mcp-client-init: false
+  mcp-stdio-servers-json-location: file:{{BUILD_DIR}}/resources/main/stdio-mcp-servers/servers-ide.json
+  mcp-http-servers-json-location: file:{{BUILD_DIR}}/resources/main/http-mcp-servers/servers-ide.json
+  enable-redeployable: false
+  deployable-mcp-servers:
+    agent-tools:
+      name: agent-tools
+      stdio: false
+
+server.port: 8081
+
+
+otel:
+  instrumentation:
+    spring-web:
+      enabled: false
+    spring-webmvc:
+      enabled: false
+    spring-webflux:
+      enabled: false
+    jdbc:
+      enabled: false
+    kafka:
+      enabled: false
+    mongo:
+      enabled: false
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+graphql-props:
+  port: 8084
+  url: http://localhost:8084/graphql
+
+spring:
+  ai:
+    vectorstore.type: none
+    mcp:
+      server:
+        stdio: true
+  main:
+    web-application-type: none
