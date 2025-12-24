@@ -1,5 +1,6 @@
 package com.hayden.mcptoolgateway.tool.deploy;
 
+import io.modelcontextprotocol.json.McpJsonMapper;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -90,7 +91,7 @@ class RedeployTest {
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
-        when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(new McpSchema.Tool("some-tool", "a tool", JsonSchemaGenerator.generateForType(String.class))), null));
+        when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(McpSchema.Tool.builder().name("some-tool").title("some-tool").description("a tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build()), null));
 
         toolDecoratorService.doPerformInit();
     }
@@ -114,7 +115,7 @@ class RedeployTest {
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.getClientInfo()).thenReturn(new McpSchema.Implementation("test-rollback-server", "1.0.0"));
-        when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(new McpSchema.Tool("some-tool", "a tool", JsonSchemaGenerator.generateForType(String.class))), null));
+        when(mockClient.listTools()).thenReturn(new McpSchema.ListToolsResult(List.of(McpSchema.Tool.builder().name("some-tool").title("some-tool").description("a tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build()), null));
 
         // When
         ToolDecoratorInterpreter.ToolDecoratorResult.RedeployResultWrapper result = redeploy.doRedeploy(redeployRequest, deployableMcpServer, toolState);
@@ -266,7 +267,7 @@ class RedeployTest {
                 .isSuccess(true)
                 .build();
 
-        McpSchema.Tool testTool = new McpSchema.Tool("test-tool", "A test tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool testTool = McpSchema.Tool.builder().name("test-tool").title("test-tool").description("A test tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build();
 
         when(dynamicMcpToolCallbackProvider.killClientAndThen(eq("test-rollback-server"), any()))
                 .thenAnswer(invocation -> {

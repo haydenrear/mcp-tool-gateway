@@ -63,11 +63,11 @@ import static org.awaitility.Awaitility.await;
 @TestPropertySource(properties = {"http-mcp.enabled=true", "spring.ai.mcp.server.stdio=false"})
 class McpServerHttpSecurityIntegrationTest {
 
-    @Autowired
-    private NimbusJwtEncoder jwtEncoder;
-
     @LocalServerPort
     private int port;
+
+    @Autowired
+    private NimbusJwtEncoder jwtEncoder;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -137,6 +137,7 @@ class McpServerHttpSecurityIntegrationTest {
     }
 
     @Test
+    @SneakyThrows
     void whenTokenThenConnects() {
         McpSchema.InitializeRequest initRequest = new McpSchema.InitializeRequest(
                 McpSchema.LATEST_PROTOCOL_VERSION,

@@ -1,5 +1,6 @@
 package com.hayden.mcptoolgateway.tool.search;
 
+import io.modelcontextprotocol.json.McpJsonMapper;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.ToolModels;
@@ -62,7 +63,8 @@ class ToolSearchTest {
 
     @Test
     void shouldMapAddServerResultIntoSearchWrapper() {
-        McpSchema.Tool tool = new McpSchema.Tool("search-tool", "search tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool tool = McpSchema.Tool.builder().name("search-tool").title("search-tool").description("search tool")
+                .inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build();
         when(dynamicMcpToolCallbackProvider.buildClient(server.name()))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.getClientInfo())

@@ -1,5 +1,6 @@
 package com.hayden.mcptoolgateway.tool.search;
 
+import io.modelcontextprotocol.json.McpJsonMapper;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.ToolDecorator;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
@@ -91,7 +92,7 @@ class ToolSearchToolDecoratorTest {
 
     @Test
     void shouldReturnSchemaAndNotifyWhenToolListChanges() {
-        McpSchema.Tool tool = new McpSchema.Tool("tool-one", "test tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool tool = McpSchema.Tool.builder().name("tool-one").title("tool-one").description("test tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build();
         when(dynamicMcpToolCallbackProvider.buildClient(server.name()))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.getClientInfo())
@@ -109,7 +110,7 @@ class ToolSearchToolDecoratorTest {
 
     @Test
     void shouldCallAddedToolCallback() {
-        McpSchema.Tool tool = new McpSchema.Tool("tool-one", "test tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool tool = McpSchema.Tool.builder().name("tool-one").title("tool-one").description("test tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build();
         when(dynamicMcpToolCallbackProvider.buildClient(server.name()))
                 .thenReturn(Result.ok(mockClient));
         when(mockClient.getClientInfo())

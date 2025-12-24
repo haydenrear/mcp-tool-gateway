@@ -1,5 +1,6 @@
 package com.hayden.mcptoolgateway.tool.tool_state;
 
+import io.modelcontextprotocol.json.McpJsonMapper;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
@@ -191,7 +192,7 @@ class SetClientsTest {
     void shouldSuccessfullySetMcpClientWithTools() {
         // Given
         String clientName = "test-rollback-server";
-        McpSchema.Tool testTool = new McpSchema.Tool("test-tool", "A test tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool testTool = McpSchema.Tool.builder().name("test-tool").title("test-tool").description("A test tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build();
         List<McpSchema.Tool> tools = List.of(testTool);
         
         when(dynamicMcpToolCallbackProvider.buildClient(clientName))
@@ -214,7 +215,7 @@ class SetClientsTest {
     void shouldHandleToolCreationException() {
         // Given
         String clientName = "test-rollback-server";
-        McpSchema.Tool testTool = new McpSchema.Tool("test-tool", "A test tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool testTool = McpSchema.Tool.builder().name("test-tool").title("test-tool").description("A test tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build();
         List<McpSchema.Tool> tools = List.of(testTool);
         
         when(dynamicMcpToolCallbackProvider.buildClient(clientName))
@@ -250,7 +251,7 @@ class SetClientsTest {
                 .initialize();
 
         // Setup new tools (one new tool, existing one removed)
-        McpSchema.Tool newTool = new McpSchema.Tool("new-tool", "A new tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool newTool = McpSchema.Tool.builder().name("new-tool").title("new-tool").description("A new tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build();
         List<McpSchema.Tool> newTools = List.of(newTool);
 
         when(dynamicMcpToolCallbackProvider.buildClient(clientName))
