@@ -5,7 +5,7 @@ plugins {
     id("com.hayden.mcp")
     id("com.hayden.spring-app")
     id("com.hayden.observable-app")
-    id("com.hayden.dgs-graphql")
+    id("com.hayden.graphql")
     id("com.hayden.log")
     id("com.hayden.docker-compose")
     id("com.hayden.paths")
