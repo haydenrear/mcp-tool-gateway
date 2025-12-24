@@ -7,7 +7,8 @@ import com.hayden.mcptoolgateway.kubernetes.UserMetadata;
 import com.hayden.mcptoolgateway.kubernetes.UserMetadataRepository;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -125,9 +126,9 @@ class McpServerIntegrationTest {
                     return null;
                 }).when(k3sService).doFilter(req.capture(), res.capture(), fc.capture());
         try (var m = McpClient.sync(
-                        HttpClientSseClientTransport.builder("http://localhost:" + port)
-                                .sseEndpoint("/sse")
-                                .objectMapper(objectMapper)
+                        HttpClientStreamableHttpTransport.builder("http://localhost:" + port)
+                                .endpoint("/mcp")
+                                .jsonMapper(new JacksonMcpJsonMapper(objectMapper))
                                 .customizeRequest(r -> r.header("Authorization", "Bearer " + accessToken))
                                 .build())
                 .build()) {

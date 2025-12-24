@@ -1,7 +1,7 @@
 package com.hayden.mcptoolgateway;
 
 import com.hayden.mcptoolgateway.config.KillCdcInitializer;
-import org.springframework.ai.mcp.client.autoconfigure.McpClientAutoConfiguration;
+import org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

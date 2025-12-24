@@ -1,68 +1,88 @@
 package com.hayden.mcptoolgateway.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiConsumer;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.json.McpJsonMapper;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.server.*;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncCompletionSpecification;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncPromptSpecification;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncResourceSpecification;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncResourceTemplateSpecification;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
+import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
+import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpServerTransportProvider;
+import io.modelcontextprotocol.spec.McpServerTransportProviderBase;
+import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
+
+import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerChangeNotificationProperties;
+import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerProperties;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
+import org.springframework.util.CollectionUtils;
+import org.springframework.web.context.support.StandardServletEnvironment;
 import com.hayden.mcptoolgateway.security.IdentityResolver;
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.utilitymodule.MapFunctions;
 import com.hayden.utilitymodule.stream.StreamUtil;
-import io.modelcontextprotocol.client.transport.*;
-import io.modelcontextprotocol.server.*;
-import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
-import io.modelcontextprotocol.server.transport.WebMvcSseServerTransportProvider;
-import io.modelcontextprotocol.spec.McpSchema;
-import io.modelcontextprotocol.spec.McpServerTransportProvider;
+import io.modelcontextprotocol.client.transport.AuthAwareHttpStreamableClientTransport;
+import io.modelcontextprotocol.client.transport.ServerParameters;
+import io.modelcontextprotocol.client.transport.StdioClientTransport;
+import io.modelcontextprotocol.server.transport.WebMvcStreamableServerTransportProvider;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.mcp.McpToolUtils;
-import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
-import org.springframework.ai.mcp.client.autoconfigure.configurer.McpSyncClientConfigurer;
-import org.springframework.ai.mcp.client.autoconfigure.properties.McpSseClientProperties;
-import org.springframework.ai.mcp.client.autoconfigure.properties.McpStdioClientProperties;
+import org.springframework.ai.mcp.client.common.autoconfigure.NamedClientMcpTransport;
+import org.springframework.ai.mcp.client.common.autoconfigure.configurer.McpSyncClientConfigurer;
+import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpStreamableHttpClientProperties;
+import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpStdioClientProperties;
 import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
-import org.springframework.ai.mcp.server.autoconfigure.McpServerProperties;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.*;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
-import org.springframework.util.ReflectionUtils;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
-import java.io.*;
-import java.lang.reflect.Field;
+import java.io.OutputStream;
 import java.util.*;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider.DEFAULT_SSE_ENDPOINT;
 
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(McpServerProperties.class)
+@EnableConfigurationProperties({McpServerProperties.class, McpServerChangeNotificationProperties.class})
 public class ToolGatewayConfig {
 
     @Autowired
     private ToolGatewayConfigProperties toolGatewayConfigProperties;
 
-    private Map<String, McpSseClientProperties.SseParameters> resourceToHttpServerParameters() {
+    private static final String DEFAULT_STREAMABLE_ENDPOINT = "/mcp";
+
+    @Bean(name = {"mcpJsonMapper", "jsonMapper"})
+    public McpJsonMapper mcpJsonMapper(ObjectMapper objectMapper) {
+        return new JacksonMcpJsonMapper(objectMapper);
+    }
+
+    private Map<String, McpStreamableHttpClientProperties.ConnectionParameters> resourceToHttpServerParameters() {
         try {
             if (!toolGatewayConfigProperties.hasHttpServers())
                 return new HashMap<>();
-            Map<String, Map<String, McpSseClientProperties.SseParameters>> stdioConnection = new ObjectMapper().readValue(
+            Map<String, Map<String, Map<String, String>>> stdioConnection = new ObjectMapper().readValue(
                     new PathMatchingResourcePatternResolver().getResource(toolGatewayConfigProperties.mcpHttpServersJsonLocation)
                             .getContentAsByteArray(),
                     new TypeReference<>() {});
@@ -72,15 +92,24 @@ public class ToolGatewayConfig {
             if (!stdioConnection.isEmpty())
                 throw new RuntimeException("Found multiple keys in config %s!".formatted(stdioConnection));
 
-            return MapFunctions.CollectMap(
-                    remove.entrySet()
-                            .stream()
-                            .map(e -> {
-                                if (e.getValue().sseEndpoint() == null)
-                                    return Map.entry(e.getKey(), new McpSseClientProperties.SseParameters(e.getValue().url(), DEFAULT_SSE_ENDPOINT));
-
-                                return e;
-                            }));
+            return MapFunctions.CollectMap(Optional.ofNullable(remove).orElseGet(Collections::emptyMap)
+                    .entrySet()
+                    .stream()
+                    .map(e -> {
+                        Map<String, String> fields = Optional.ofNullable(e.getValue()).orElseGet(Collections::emptyMap);
+                        String url = fields.get("url");
+                        String endpoint = Optional.ofNullable(fields.get("endpoint"))
+                                .or(() -> Optional.ofNullable(fields.get("sseEndpoint")))
+                                .orElse(null);
+                        if (endpoint == null) {
+                            endpoint = DEFAULT_STREAMABLE_ENDPOINT;
+                        }
+                        if (url == null) {
+                            throw new RuntimeException("Missing url for MCP server %s".formatted(e.getKey()));
+                        }
+                        return Map.entry(e.getKey(),
+                                new McpStreamableHttpClientProperties.ConnectionParameters(url, endpoint));
+                    }));
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to read stdio connection resource", e);
@@ -133,7 +162,8 @@ public class ToolGatewayConfig {
 
     @Bean
     @Primary
-    public List<NamedClientMcpTransport> namedTransports(ObjectMapper objectMapper,
+    public List<NamedClientMcpTransport> namedTransports(McpJsonMapper objectMapper,
+                                                         ObjectMapper om,
                                                          IdentityResolver authResolver) {
         var http = resourceToHttpServerParameters().entrySet()
                 .stream()
@@ -144,15 +174,15 @@ public class ToolGatewayConfig {
                 })
                 .map(e -> new NamedClientMcpTransport(
                         e.getKey(),
-                        AuthAwareHttpSseClientTransport.authAwareBuilder(e.getValue().url())
-                                .objectMapper(objectMapper)
+                        AuthAwareHttpStreamableClientTransport.authAwareBuilder(e.getValue().url())
+                                .objectMapper(om)
                                 .authResolver(authResolver)
-                                .sseEndpoint(e.getKey())
+                                .endpoint(e.getValue().endpoint())
                                 .configProperties(toolGatewayConfigProperties.deployableMcpServers.get(e.getKey()))
                                 .build()));
         var stdio = resourceToStdioServerParameters().entrySet()
                 .stream()
-                .map(e -> new NamedClientMcpTransport(e.getKey(), new StdioClientTransport(e.getValue())));
+                .map(e -> new NamedClientMcpTransport(e.getKey(), new StdioClientTransport(e.getValue(), objectMapper)));
 
         var all = Stream.concat(http, stdio).toList();
         return all;
@@ -161,7 +191,7 @@ public class ToolGatewayConfig {
     @SneakyThrows
     @Bean
     @Profile({"rollback-tests"})
-    public StdioServerTransportProvider transportProvider(ObjectMapper objectMapper,
+    public StdioServerTransportProvider transportProvider(McpJsonMapper objectMapper,
                                                           WritableInput writableInput) {
 
         return new StdioServerTransportProvider(objectMapper, writableInput.input(), new OutputStream() {
@@ -183,21 +213,23 @@ public class ToolGatewayConfig {
 
     @Bean
     @ConditionalOnProperty(name = "spring.ai.mcp.server.stdio", havingValue = "true")
-    public StdioServerTransportProvider stdioProvider(ObjectMapper objectMapper) {
+    public StdioServerTransportProvider stdioProvider(McpJsonMapper objectMapper) {
         return new StdioServerTransportProvider(objectMapper);
     }
 
     @Bean
     @ConditionalOnProperty(name = "spring.ai.mcp.server.stdio", havingValue = "false")
-    public WebMvcSseServerTransportProvider httpProvider(
-            ObjectMapper om, McpServerProperties serverProperties) {
-        return new WebMvcSseServerTransportProvider(om, serverProperties.getBaseUrl(),
-                serverProperties.getSseMessageEndpoint(), serverProperties.getSseEndpoint());
+    public WebMvcStreamableServerTransportProvider httpProvider(
+            McpJsonMapper om, McpServerProperties serverProperties) {
+        return WebMvcStreamableServerTransportProvider.builder()
+                .jsonMapper(om)
+                .mcpEndpoint(DEFAULT_STREAMABLE_ENDPOINT)
+                .build();
     }
 
     @Bean
     @ConditionalOnProperty(name = "spring.ai.mcp.server.stdio", havingValue = "false")
-    public RouterFunction<ServerResponse> mvcMcpRouterFunction(WebMvcSseServerTransportProvider transportProvider) {
+    public RouterFunction<ServerResponse> mvcMcpRouterFunction(WebMvcStreamableServerTransportProvider transportProvider) {
         return transportProvider.getRouterFunction();
     }
 
@@ -210,38 +242,40 @@ public class ToolGatewayConfig {
     @SneakyThrows
     @Bean("mcpSyncServer")
     @Primary
-    public McpSyncServer mcpSyncServer(McpServerTransportProvider transportProvider,
+    public McpSyncServer mcpSyncServer(McpServerTransportProviderBase transportProvider,
                                                   McpSchema.ServerCapabilities.Builder capabilitiesBuilder,
                                                   McpServerProperties serverProperties,
+                                                  ObjectMapper objectMapper,
+                                                  McpServerChangeNotificationProperties changeNotificationProperties,
                                                   ObjectProvider<List<McpServerFeatures.SyncToolSpecification>> tools,
+                                                  ObjectProvider<List<SyncResourceTemplateSpecification>> resourceTemplates,
                                                   ObjectProvider<List<McpServerFeatures.SyncResourceSpecification>> resources,
                                                   ObjectProvider<List<McpServerFeatures.SyncPromptSpecification>> prompts,
                                                   ObjectProvider<List<McpServerFeatures.SyncCompletionSpecification>> completions,
                                                   ObjectProvider<BiConsumer<McpSyncServerExchange, List<McpSchema.Root>>> rootsChangeConsumers,
                                                   List<ToolCallbackProvider> toolCallbackProvider,
-                                                  @Lazy ToolDecoratorService toolDecoratorService) {
+                                                  @Lazy ToolDecoratorService toolDecoratorService,
+                                                  Environment environment) {
         McpSchema.Implementation serverInfo = new McpSchema.Implementation(serverProperties.getName(),
                 serverProperties.getVersion());
 
-        // Create the server with both tool and resource capabilities
-        GatewayMcpServer.SyncSpecification serverBuilder = GatewayMcpServer.sync(transportProvider).serverInfo(serverInfo);
+        GatewayMcpServer.SyncSpecification<?> serverBuilder;
+        if (transportProvider instanceof McpStreamableServerTransportProvider) {
+            serverBuilder = GatewayMcpServer.sync((McpStreamableServerTransportProvider) transportProvider);
+        }
+        else {
+            serverBuilder = GatewayMcpServer.sync((McpServerTransportProvider) transportProvider);
+        }
+        serverBuilder.serverInfo(serverInfo);
 
         // Tools
         if (serverProperties.getCapabilities().isTool()) {
-            log.info("Enable tools capabilities, notification: " + serverProperties.isToolChangeNotification());
-            capabilitiesBuilder.tools(serverProperties.isToolChangeNotification());
+            log.info("Enable tools capabilities, notification: "
+                    + changeNotificationProperties.isToolChangeNotification());
+            capabilitiesBuilder.tools(changeNotificationProperties.isToolChangeNotification());
 
-            List<McpServerFeatures.SyncToolSpecification> toolSpecifications = new ArrayList<>(
+            List<SyncToolSpecification> toolSpecifications = new ArrayList<>(
                     tools.stream().flatMap(List::stream).toList());
-
-            List<ToolCallback> providerToolCallbacks = toolCallbackProvider.stream()
-                    .map(pr -> List.of(pr.getToolCallbacks()))
-                    .flatMap(List::stream)
-                    .filter(fc -> fc instanceof ToolCallback)
-                    .map(fc -> (ToolCallback) fc)
-                    .toList();
-
-            toolSpecifications.addAll(this.toSyncToolSpecifications(providerToolCallbacks, serverProperties));
 
             if (!CollectionUtils.isEmpty(toolSpecifications)) {
                 serverBuilder.tools(toolSpecifications);
@@ -251,23 +285,39 @@ public class ToolGatewayConfig {
 
         // Resources
         if (serverProperties.getCapabilities().isResource()) {
-            log.info(
-                    "Enable resources capabilities, notification: " + serverProperties.isResourceChangeNotification());
-            capabilitiesBuilder.resources(false, serverProperties.isResourceChangeNotification());
+            log.info("Enable resources capabilities, notification: "
+                    + changeNotificationProperties.isResourceChangeNotification());
+            capabilitiesBuilder.resources(false, changeNotificationProperties.isResourceChangeNotification());
 
-            List<McpServerFeatures.SyncResourceSpecification> resourceSpecifications = resources.stream().flatMap(List::stream).toList();
+            List<SyncResourceSpecification> resourceSpecifications = resources.stream().flatMap(List::stream).toList();
             if (!CollectionUtils.isEmpty(resourceSpecifications)) {
                 serverBuilder.resources(resourceSpecifications);
                 log.info("Registered resources: " + resourceSpecifications.size());
             }
         }
 
+        // Resources Templates
+        if (serverProperties.getCapabilities().isResource()) {
+            log.info("Enable resources templates capabilities, notification: "
+                    + changeNotificationProperties.isResourceChangeNotification());
+            capabilitiesBuilder.resources(false, changeNotificationProperties.isResourceChangeNotification());
+
+            List<SyncResourceTemplateSpecification> resourceTemplateSpecifications = resourceTemplates.stream()
+                    .flatMap(List::stream)
+                    .toList();
+            if (!CollectionUtils.isEmpty(resourceTemplateSpecifications)) {
+                serverBuilder.resourceTemplates(resourceTemplateSpecifications);
+                log.info("Registered resource templates: " + resourceTemplateSpecifications.size());
+            }
+        }
+
         // Prompts
         if (serverProperties.getCapabilities().isPrompt()) {
-            log.info("Enable prompts capabilities, notification: " + serverProperties.isPromptChangeNotification());
-            capabilitiesBuilder.prompts(serverProperties.isPromptChangeNotification());
+            log.info("Enable prompts capabilities, notification: "
+                    + changeNotificationProperties.isPromptChangeNotification());
+            capabilitiesBuilder.prompts(changeNotificationProperties.isPromptChangeNotification());
 
-            List<McpServerFeatures.SyncPromptSpecification> promptSpecifications = prompts.stream().flatMap(List::stream).toList();
+            List<SyncPromptSpecification> promptSpecifications = prompts.stream().flatMap(List::stream).toList();
             if (!CollectionUtils.isEmpty(promptSpecifications)) {
                 serverBuilder.prompts(promptSpecifications);
                 log.info("Registered prompts: " + promptSpecifications.size());
@@ -279,7 +329,7 @@ public class ToolGatewayConfig {
             log.info("Enable completions capabilities");
             capabilitiesBuilder.completions();
 
-            List<McpServerFeatures.SyncCompletionSpecification> completionSpecifications = completions.stream()
+            List<SyncCompletionSpecification> completionSpecifications = completions.stream()
                     .flatMap(List::stream)
                     .toList();
             if (!CollectionUtils.isEmpty(completionSpecifications)) {
@@ -289,7 +339,9 @@ public class ToolGatewayConfig {
         }
 
         rootsChangeConsumers.ifAvailable(consumer -> {
-            serverBuilder.rootsChangeHandler((exchange, roots) -> consumer.accept(exchange, roots));
+            BiConsumer<McpSyncServerExchange, List<McpSchema.Root>> syncConsumer = (exchange, roots) -> consumer
+                    .accept(exchange, roots);
+            serverBuilder.rootsChangeHandler(syncConsumer);
             log.info("Registered roots change consumer");
         });
 
@@ -299,12 +351,18 @@ public class ToolGatewayConfig {
 
         serverBuilder.requestTimeout(serverProperties.getRequestTimeout());
 
-        var builtServer = serverBuilder.build();
-        if (builtServer.getAsyncServer() instanceof GatewayMcpAsyncServer g) {
+        if (environment instanceof StandardServletEnvironment) {
+            serverBuilder.immediateExecution(true);
+        }
+
+
+        McpSyncServer built = serverBuilder.build();
+
+        if (built.getAsyncServer() instanceof GatewayMcpAsyncServer g) {
             g.setToolDecoratorService(toolDecoratorService);
         }
 
-        return builtServer;
+        return built;
     }
 
     @Bean
@@ -342,6 +400,16 @@ public class ToolGatewayConfig {
                     return McpToolUtils.toSyncToolSpecification(tool, mimeType);
                 })
                 .toList();
+    }
+
+    private GatewayMcpServer.SyncSpecification buildSyncSpecification(McpServerTransportProviderBase transportProvider) {
+        if (transportProvider instanceof McpStreamableServerTransportProvider streamable) {
+            return GatewayMcpServer.sync(streamable);
+        }
+        if (transportProvider instanceof McpServerTransportProvider legacy) {
+            return GatewayMcpServer.sync(legacy);
+        }
+        throw new IllegalArgumentException("Unsupported MCP transport provider: " + transportProvider.getClass().getName());
     }
 
 
