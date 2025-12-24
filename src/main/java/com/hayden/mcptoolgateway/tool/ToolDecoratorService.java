@@ -18,6 +18,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -86,10 +87,14 @@ public class ToolDecoratorService {
     @Autowired
     ToolDecoratorInterpreter toolDecoratorInterpreter;
 
+    private CountDownLatch initialized = new CountDownLatch(1);
+
     @PostConstruct
     public void init() {
-        if (this.toolGatewayConfigProperties.isStartMcpServerOnInitialize())
+        if (this.toolGatewayConfigProperties.isStartMcpServerOnInitialize()) {
+            log.info("Initializing");
             doPerformInit();
+        }
     }
 
 
@@ -98,10 +103,19 @@ public class ToolDecoratorService {
     }
 
     public void doPerformInit() {
+        log.info("Performing initialize.");
         toolStates.doPerformInitialization(() -> {
             buildTools();
             return true;
         });
+        this.initialized.countDown();
+        log.info("Performed initialize.");
+    }
+
+    @SneakyThrows
+    public void awaitInitialized() {
+        log.info("Awaiting!");
+        this.initialized.await();
     }
 
     public record AddClient(String serverName, String userName, String hostName)  {}

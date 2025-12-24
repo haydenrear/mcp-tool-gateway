@@ -1,6 +1,8 @@
 authorization-server:
   base-uri: http://cdc-commit-diff-context-authorization:8080
 
+
+
 logging.config: classpath:logback-mcp-tool-gateway.xml
 
 gateway:
@@ -41,6 +43,9 @@ graphql-props:
   url: http://localhost:8084/graphql
 
 spring:
+  mvc:
+    async:
+      request-timeout: 0
   ai:
     vectorstore.type: none
     mcp:

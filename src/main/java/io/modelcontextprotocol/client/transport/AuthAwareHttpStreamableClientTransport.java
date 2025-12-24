@@ -25,6 +25,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static io.modelcontextprotocol.spec.ProtocolVersions.MCP_2025_03_26;
+
 public class AuthAwareHttpStreamableClientTransport implements io.modelcontextprotocol.spec.McpClientTransport {
 
     private static final String DEFAULT_MCP_ENDPOINT = "/mcp";
