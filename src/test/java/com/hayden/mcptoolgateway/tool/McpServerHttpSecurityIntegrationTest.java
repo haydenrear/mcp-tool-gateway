@@ -8,7 +8,8 @@ import com.hayden.mcptoolgateway.kubernetes.UserMetadata;
 import com.hayden.mcptoolgateway.kubernetes.UserMetadataRepository;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -137,18 +138,28 @@ class McpServerHttpSecurityIntegrationTest {
 
     @Test
     void whenTokenThenConnects() {
+        McpSchema.InitializeRequest initRequest = new McpSchema.InitializeRequest(
+                McpSchema.LATEST_PROTOCOL_VERSION,
+                new McpSchema.ClientCapabilities(null, null, null, null),
+                new McpSchema.Implementation("test-client", "1.0.0"));
+        McpSchema.JSONRPCRequest rpcRequest = new McpSchema.JSONRPCRequest(
+                McpSchema.JSONRPC_VERSION,
+                McpSchema.METHOD_INITIALIZE,
+                1,
+                initRequest);
 
         var request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:" + port + "/sse"))
-                .header("Accept", "text/event-stream")
+                .uri(URI.create("http://localhost:" + port + "/mcp"))
+                .header("Accept", "application/json, text/event-stream")
+                .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + accessToken)
-                .GET()
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(rpcRequest)))
                 .build();
 
         var responseCode = new AtomicInteger(-1);
 
         try (var client = HttpClient.newHttpClient()) {
-            var sseRequest = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
+            var initRequestSend = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
                     .thenApply(response -> {
                         responseCode.set(response.statusCode());
                         // IMPORTANT: close the stream so the server sees EOF
@@ -159,16 +170,16 @@ class McpServerHttpSecurityIntegrationTest {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                        if (response.statusCode() == 200 || response.statusCode() == 403) {
+                        if (response.statusCode() == 200) {
                             return response;
                         } else {
-                            throw new RuntimeException("Failed to connect to SSE endpoint: " + response.statusCode());
+                            throw new RuntimeException("Failed to initialize MCP session: " + response.statusCode());
                         }
 
                     });
 
             await().atMost(Duration.ofSeconds(3)).until(() -> responseCode.get() == 200);
-            assertThat(sseRequest).isCompleted();
+            assertThat(initRequestSend).isCompleted();
             assertThat(responseCode.get() == 200).isTrue();
             client.shutdownNow();
         }
@@ -179,9 +190,9 @@ class McpServerHttpSecurityIntegrationTest {
     void whenNoTokenThenFails() {
 
         try (var m = McpClient.sync(
-                        HttpClientSseClientTransport.builder("")
-                                .sseEndpoint("/sse")
-                                .objectMapper(objectMapper)
+                        HttpClientStreamableHttpTransport.builder("")
+                                .endpoint("/mcp")
+                                .jsonMapper(new JacksonMcpJsonMapper(objectMapper))
                                 .build())
                 .build()) {
             var initialized = m.initialize();
@@ -194,7 +205,7 @@ class McpServerHttpSecurityIntegrationTest {
     @Test
     void whenNoTokenThenFailsWithMcpClient() throws IOException, InterruptedException {
         var request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:" + port + "/sse"))
+                .uri(URI.create("http://localhost:" + port + "/mcp"))
                 .header("Accept", "text/event-stream")
                 .GET()
                 .build();

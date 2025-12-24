@@ -4,14 +4,14 @@ import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
 import com.hayden.utilitymodule.free.Free;
-import io.modelcontextprotocol.client.transport.AuthAwareHttpSseClientTransport;
+import io.modelcontextprotocol.client.transport.AuthAwareHttpStreamableClientTransport;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
+import org.springframework.ai.mcp.client.common.autoconfigure.NamedClientMcpTransport;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -166,7 +166,7 @@ public class ToolDecoratorService {
                 this.toolStates.copyOf().get(serverName.serverName),
                 new NamedClientMcpTransport(
                         name,
-                        AuthAwareHttpSseClientTransport.authAwareBuilder(serverName.hostName)
+                        AuthAwareHttpStreamableClientTransport.authAwareBuilder(serverName.hostName)
                                 .build()));
 
         var set = Free.parse(setE, toolDecoratorInterpreter);

@@ -2,7 +2,7 @@
   "mcpServers": {
     "agent-tools": {
       "url": "http://localhost:8081",
-      "sseEndpoint": "/sse"
+      "endpoint": "/mcp"
     }
   }
 }

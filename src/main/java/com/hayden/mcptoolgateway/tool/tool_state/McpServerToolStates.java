@@ -1,6 +1,8 @@
 package com.hayden.mcptoolgateway.tool.tool_state;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.mcptoolgateway.security.IdentityResolver;
 import com.hayden.mcptoolgateway.tool.PassthroughFunctionToolCallback;
@@ -19,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.mcp.McpToolUtils;
-import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
+import org.springframework.ai.mcp.client.common.autoconfigure.NamedClientMcpTransport;
 import org.springframework.ai.tool.StaticToolCallbackProvider;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
@@ -151,7 +153,7 @@ public class McpServerToolStates {
 
     public Free<ToolDecoratorInterpreter.ToolDecoratorEffect, ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult> setMcpClientUpdateTools(
             McpSyncClient m,
-            McpServerToolStates.DeployedService deployService,
+            DeployedService deployService,
             ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return setClients.setMcpClientUpdateTools(m, deployService, mcpServerToolState, this.doSetMcpClient(m, deployService, mcpServerToolState));
     }
@@ -450,7 +452,7 @@ public class McpServerToolStates {
 
     private List<ToolDecoratorService.CreateToolCallbackProviderResult> toToolCallbackProvider(McpSchema.ListToolsResult listToolsResult,
                                                                                                SetClients.DelegateMcpClient mcpSyncClient,
-                                                                                               McpServerToolStates.DeployedService deployService) {
+                                                                                               DeployedService deployService) {
         return listToolsResult.tools().stream()
                 .map(t -> createToolCallbackProvider(mcpSyncClient, t, deployService))
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -458,7 +460,7 @@ public class McpServerToolStates {
 
     private @NotNull ToolDecoratorService.CreateToolCallbackProviderResult createToolCallbackProvider(SetClients.DelegateMcpClient mcpSyncClient,
                                                                                                       McpSchema.Tool t,
-                                                                                                      McpServerToolStates.DeployedService deployedService) {
+                                                                                                      DeployedService deployedService) {
         try {
             var f = buildPassThroughToolCallback(mcpSyncClient, t, deployedService);
 
@@ -476,7 +478,7 @@ public class McpServerToolStates {
 
     private @NotNull PassthroughFunctionToolCallback buildPassThroughToolCallback(SetClients.DelegateMcpClient mcpSyncClient,
                                                                                   McpSchema.Tool t,
-                                                                                  McpServerToolStates.DeployedService deployedService) throws JsonProcessingException {
+                                                                                  DeployedService deployedService) throws JsonProcessingException {
         String toolName = getToolName(mcpSyncClient.getClientInfo().name(), t.name());
         var toolDefinition = DefaultToolDefinition.builder()
                 .name(toolName)
@@ -487,7 +489,7 @@ public class McpServerToolStates {
         BiFunction<String, ToolContext, String> toolFunction = (i, o) -> {
             log.info("Running tool callback for {}.", toolName);
             try {
-                McpSchema.CallToolResult value = mcpSyncClient.callTool(new McpSchema.CallToolRequest(t.name(), i));
+                McpSchema.CallToolResult value = mcpSyncClient.callTool(new McpSchema.CallToolRequest(t.name(),objectMapper.readValue(i, new TypeReference<Map<String, Object>>() {})));
                 if (value.isError() && CollectionUtils.isEmpty(value.content())) {
                     return """
                             { "error": "true", "message": "Unknown error." }
@@ -520,8 +522,20 @@ public class McpServerToolStates {
                 log.error("Found unknown image resource");
                 throw new RuntimeException("Unimplemented");
             }
-            case McpSchema.TextContent(List<McpSchema.Role> audience, Double priority, String text) -> {
+            case McpSchema.TextContent(
+                    McpSchema.Annotations annotations,
+                    String text,
+                    Map<String, Object> meta
+            ) -> {
                 yield text;
+            }
+            case McpSchema.AudioContent audioContent ->{
+                    log.error("Found unknown audio resource");
+                throw new RuntimeException("Unimplemented");
+            }
+            case McpSchema.ResourceLink resourceLink ->{
+                log.error("Found unknown ressource link");
+                throw new RuntimeException("Unimplemented");
             }
         };
     }
@@ -560,7 +574,7 @@ public class McpServerToolStates {
     private static ToolDecoratorInterpreter.ToolDecoratorResult.SetSyncClientResult parseToolExceptionFail(Exception e,
                                                                                                            SetClients.DelegateMcpClient mcpClient,
                                                                                                            Map<String, ToolDecoratorService.ToolCallbackDescriptor> existing,
-                                                                                                           McpServerToolStates.DeployedService deployService,
+                                                                                                           DeployedService deployService,
                                                                                                            ToolDecoratorService.McpServerToolState toolState) {
         log.error("Error when attempting to retrieve tools: {}", e.getMessage(), e);
         mcpClient.setError(e.getMessage());
@@ -593,7 +607,7 @@ public class McpServerToolStates {
     }
 
     public ToolDecoratorInterpreter.ToolDecoratorResult.SetMcpClientResult doSetMcpClient(McpSyncClient m,
-                                                                                          McpServerToolStates.DeployedService deployService,
+                                                                                          DeployedService deployService,
                                                                                           ToolDecoratorService.McpServerToolState mcpServerToolState) {
         return new ToolDecoratorInterpreter.ToolDecoratorResult.SetMcpClientResult(this.setClients.doSetMcpClient(m, deployService, mcpServerToolState));
     }
