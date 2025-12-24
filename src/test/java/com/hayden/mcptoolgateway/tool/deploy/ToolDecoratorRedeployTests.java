@@ -1,5 +1,6 @@
 package com.hayden.mcptoolgateway.tool.deploy;
 
+import io.modelcontextprotocol.json.McpJsonMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hayden.mcptoolgateway.config.ToolGatewayConfigProperties;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
@@ -430,7 +431,7 @@ class ToolDecoratorRedeployTests {
     @Test
     void shouldHandleToolsWithValidConfiguration() {
         // Given
-        McpSchema.Tool testTool = new McpSchema.Tool("test-tool", "A test tool", JsonSchemaGenerator.generateForType(String.class));
+        McpSchema.Tool testTool = McpSchema.Tool.builder().name("test-tool").title("test-tool").description("A test tool").inputSchema(McpJsonMapper.getDefault(), JsonSchemaGenerator.generateForType(String.class)).build();
         
         when(dynamicMcpToolCallbackProvider.buildClient("test-rollback-server"))
                 .thenReturn(Result.ok(mockClient));

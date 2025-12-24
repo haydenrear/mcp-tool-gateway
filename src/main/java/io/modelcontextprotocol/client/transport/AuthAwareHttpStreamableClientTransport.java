@@ -30,15 +30,15 @@ public class AuthAwareHttpStreamableClientTransport implements io.modelcontextpr
     private static final String DEFAULT_MCP_ENDPOINT = "/mcp";
     private static final String AUTH_CONTEXT_KEY = "authorization";
 
-    private final HttpClientStreamableHttpTransport delegate;
+    private final DelegatingHttpClientStreamableHttpTransport delegate;
     private final McpJsonMapper jsonMapper;
     private final ObjectMapper objectMapper;
     private final IdentityResolver resolver;
-    private final ToolGatewayConfigProperties.DecoratedMcpServer configProperties;
+    private final ToolGatewayConfigProperties.DecoratedMcpServer server;
     private final String baseUri;
     private final String endpoint;
 
-    private AuthAwareHttpStreamableClientTransport(HttpClientStreamableHttpTransport delegate, McpJsonMapper jsonMapper,
+    private AuthAwareHttpStreamableClientTransport(DelegatingHttpClientStreamableHttpTransport delegate, McpJsonMapper jsonMapper,
                                                    ObjectMapper objectMapper, IdentityResolver resolver,
                                                    ToolGatewayConfigProperties.DecoratedMcpServer configProperties,
                                                    String baseUri, String endpoint) {
@@ -46,7 +46,7 @@ public class AuthAwareHttpStreamableClientTransport implements io.modelcontextpr
         this.jsonMapper = jsonMapper;
         this.objectMapper = objectMapper;
         this.resolver = resolver;
-        this.configProperties = configProperties;
+        this.server = configProperties;
         this.baseUri = baseUri;
         this.endpoint = endpoint;
     }
@@ -65,7 +65,13 @@ public class AuthAwareHttpStreamableClientTransport implements io.modelcontextpr
 
     @Override
     public Mono<Void> connect(Function<Mono<McpSchema.JSONRPCMessage>, Mono<McpSchema.JSONRPCMessage>> handler) {
-        return delegate.connect(handler);
+
+        return clientCredentialsBearer()
+                .flatMap(s -> {
+                    return delegate.connect(handler, s);
+                });
+
+
     }
 
     @Override
@@ -78,10 +84,14 @@ public class AuthAwareHttpStreamableClientTransport implements io.modelcontextpr
         return delegate.closeGracefully();
     }
 
+    private Mono<String> clientCredentialsBearer() {
+        return this.resolver.s2sIdentity(this.server);
+    }
+
     @Override
     public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) {
         StrippedMessage stripped = stripBearer(message);
-        Mono<Void> send = delegate.sendMessage(stripped.message());
+        Mono<Void> send = delegate.sendMessage(stripped.message(), stripped.bearer);
         if (StringUtils.isNotBlank(stripped.bearer())) {
             return send.contextWrite(ctx -> {
                 if (ctx.hasKey(McpTransportContext.KEY)) {
@@ -251,7 +261,7 @@ public class AuthAwareHttpStreamableClientTransport implements io.modelcontextpr
             McpAsyncHttpClientRequestCustomizer chainedCustomizer =
                     new DelegatingMcpAsyncHttpClientRequestCustomizer(List.of(authCustomizer, requestCustomizer));
 
-            HttpClientStreamableHttpTransport delegate = HttpClientStreamableHttpTransport.builder(baseUri)
+            DelegatingHttpClientStreamableHttpTransport delegate = DelegatingHttpClientStreamableHttpTransport.builder(baseUri)
                     .endpoint(endpoint)
                     .clientBuilder(clientBuilder)
                     .requestBuilder(requestBuilder)

@@ -402,15 +402,5 @@ public class ToolGatewayConfig {
                 .toList();
     }
 
-    private GatewayMcpServer.SyncSpecification buildSyncSpecification(McpServerTransportProviderBase transportProvider) {
-        if (transportProvider instanceof McpStreamableServerTransportProvider streamable) {
-            return GatewayMcpServer.sync(streamable);
-        }
-        if (transportProvider instanceof McpServerTransportProvider legacy) {
-            return GatewayMcpServer.sync(legacy);
-        }
-        throw new IllegalArgumentException("Unsupported MCP transport provider: " + transportProvider.getClass().getName());
-    }
-
 
 }
