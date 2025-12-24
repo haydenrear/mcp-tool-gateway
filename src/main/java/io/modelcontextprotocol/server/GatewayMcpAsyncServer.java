@@ -4,9 +4,7 @@ import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
-import io.modelcontextprotocol.spec.DefaultMcpStreamableServerSessionFactory;
-import io.modelcontextprotocol.spec.McpError;
-import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.*;
 import io.modelcontextprotocol.spec.McpSchema.CompleteResult.CompleteCompletion;
 import io.modelcontextprotocol.spec.McpSchema.ErrorCodes;
 import io.modelcontextprotocol.spec.McpSchema.LoggingLevel;
@@ -14,14 +12,11 @@ import io.modelcontextprotocol.spec.McpSchema.LoggingMessageNotification;
 import io.modelcontextprotocol.spec.McpSchema.PromptReference;
 import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.SetLevelRequest;
-import io.modelcontextprotocol.spec.McpServerSession;
-import io.modelcontextprotocol.spec.McpServerTransportProvider;
-import io.modelcontextprotocol.spec.McpServerTransportProviderBase;
-import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
 import io.modelcontextprotocol.util.DefaultMcpUriTemplateManagerFactory;
 import io.modelcontextprotocol.util.McpUriTemplateManagerFactory;
 import io.modelcontextprotocol.util.Utils;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -39,10 +34,11 @@ import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
 import static io.modelcontextprotocol.spec.McpError.RESOURCE_NOT_FOUND;
+import static io.modelcontextprotocol.spec.ProtocolVersions.MCP_2025_03_26;
 
+@Slf4j
 public class GatewayMcpAsyncServer extends McpAsyncServer {
 
-    private static final Logger logger = LoggerFactory.getLogger(GatewayMcpAsyncServer.class);
 
     private final McpServerTransportProviderBase mcpTransportProvider;
 
@@ -97,7 +93,8 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
         Map<String, McpRequestHandler<?>> requestHandlers = prepareRequestHandlers();
         Map<String, McpNotificationHandler> notificationHandlers = prepareNotificationHandlers(features);
 
-        this.protocolVersions = mcpTransportProvider.protocolVersions();
+        this.protocolVersions = List.of(ProtocolVersions.MCP_2024_11_05,
+				ProtocolVersions.MCP_2025_03_26, ProtocolVersions.MCP_2025_06_18);
 
         mcpTransportProvider.setSessionFactory(transport -> new McpServerSession(UUID.randomUUID().toString(),
                 requestTimeout, transport, this::asyncInitializeRequestHandler, requestHandlers, notificationHandlers));
@@ -138,7 +135,7 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
                 .rootsChangeConsumers();
 
         if (Utils.isEmpty(rootsChangeConsumers)) {
-            rootsChangeConsumers = List.of((exchange, roots) -> Mono.fromRunnable(() -> logger
+            rootsChangeConsumers = List.of((exchange, roots) -> Mono.fromRunnable(() -> log
                     .warn("Roots list changed notification, but no consumers provided. Roots list changed: {}", roots)));
         }
 
@@ -181,7 +178,8 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
 
     private Mono<McpSchema.InitializeResult> asyncInitializeRequestHandler(McpSchema.InitializeRequest initializeRequest) {
         return Mono.defer(() -> {
-            logger.info("Client initialize request - Protocol: {}, Capabilities: {}, Info: {}",
+            this.toolDecoratorService.awaitInitialized();
+            log.info("Client initialize request - Protocol: {}, Capabilities: {}, Info: {}",
                     initializeRequest.protocolVersion(), initializeRequest.capabilities(), initializeRequest.clientInfo());
 
             String serverProtocolVersion = this.protocolVersions.get(this.protocolVersions.size() - 1);
@@ -190,7 +188,7 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
                 serverProtocolVersion = initializeRequest.protocolVersion();
             }
             else {
-                logger.warn(
+                log.warn(
                         "Client requested unsupported protocol version: {}, so the server will suggest the {} version instead",
                         initializeRequest.protocolVersion(), serverProtocolVersion);
             }
@@ -222,7 +220,7 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
                 .flatMap(listRootsResult -> Flux.fromIterable(rootsChangeConsumers)
                         .flatMap(consumer -> consumer.apply(exchange, listRootsResult.roots()))
                         .onErrorResume(error -> {
-                            logger.error("Error handling roots list change notification", error);
+                            log.error("Error handling roots list change notification", error);
                             return Mono.empty();
                         })
                         .then());
@@ -248,7 +246,7 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
             }
 
             this.tools.add(withStructuredOutputHandling(jsonSchemaValidator, toolSpecification));
-            logger.debug("Added tool handler: {}", toolSpecification.tool().name());
+            log.debug("Added tool handler: {}", toolSpecification.tool().name());
 
             if (this.serverCapabilities.tools().listChanged()) {
                 return notifyToolsListChanged();
@@ -273,7 +271,7 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
             boolean removed = this.tools
                     .removeIf(toolSpecification -> toolSpecification.tool().name().equals(toolName));
             if (removed) {
-                logger.debug("Removed tool handler: {}", toolName);
+                log.debug("Removed tool handler: {}", toolName);
                 if (this.serverCapabilities.tools().listChanged()) {
                     return notifyToolsListChanged();
                 }
@@ -289,8 +287,10 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
 
     private McpRequestHandler<McpSchema.ListToolsResult> toolsListRequestHandler() {
         return (exchange, params) -> {
+            log.info("Received tools list request.");
+            this.toolDecoratorService.awaitInitialized();
             List<McpSchema.Tool> tools = this.tools.stream()
-                    .filter(Predicate.not(s -> toolDecoratorService != null && toolDecoratorService.isOnlyAddable(s)))
+//                    .filter(Predicate.not(s -> toolDecoratorService != null && toolDecoratorService.isOnlyAddable(s)))
                     .map(McpServerFeatures.AsyncToolSpecification::tool)
                     .toList();
 
@@ -332,10 +332,10 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
         return Mono.defer(() -> {
             var previous = this.resources.put(resourceSpecification.resource().uri(), resourceSpecification);
             if (previous != null) {
-                logger.warn("Replace existing Resource with URI '{}'", resourceSpecification.resource().uri());
+                log.warn("Replace existing Resource with URI '{}'", resourceSpecification.resource().uri());
             }
             else {
-                logger.debug("Added resource handler: {}", resourceSpecification.resource().uri());
+                log.debug("Added resource handler: {}", resourceSpecification.resource().uri());
             }
             if (this.serverCapabilities.resources().listChanged()) {
                 return notifyResourcesListChanged();
@@ -360,14 +360,14 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
         return Mono.defer(() -> {
             McpServerFeatures.AsyncResourceSpecification removed = this.resources.remove(resourceUri);
             if (removed != null) {
-                logger.debug("Removed resource handler: {}", resourceUri);
+                log.debug("Removed resource handler: {}", resourceUri);
                 if (this.serverCapabilities.resources().listChanged()) {
                     return notifyResourcesListChanged();
                 }
                 return Mono.empty();
             }
             else {
-                logger.warn("Ignore as a Resource with URI '{}' not found", resourceUri);
+                log.warn("Ignore as a Resource with URI '{}' not found", resourceUri);
             }
             return Mono.empty();
         });
@@ -385,11 +385,11 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
             var previous = this.resourceTemplates.put(resourceTemplateSpecification.resourceTemplate().uriTemplate(),
                     resourceTemplateSpecification);
             if (previous != null) {
-                logger.warn("Replace existing Resource Template with URI '{}'",
+                log.warn("Replace existing Resource Template with URI '{}'",
                         resourceTemplateSpecification.resourceTemplate().uriTemplate());
             }
             else {
-                logger.debug("Added resource template handler: {}",
+                log.debug("Added resource template handler: {}",
                         resourceTemplateSpecification.resourceTemplate().uriTemplate());
             }
             if (this.serverCapabilities.resources().listChanged()) {
@@ -414,10 +414,10 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
         return Mono.defer(() -> {
             McpServerFeatures.AsyncResourceTemplateSpecification removed = this.resourceTemplates.remove(uriTemplate);
             if (removed != null) {
-                logger.debug("Removed resource template: {}", uriTemplate);
+                log.debug("Removed resource template: {}", uriTemplate);
             }
             else {
-                logger.warn("Ignore as a Resource Template with URI '{}' not found", uriTemplate);
+                log.warn("Ignore as a Resource Template with URI '{}' not found", uriTemplate);
             }
             return Mono.empty();
         });
@@ -493,10 +493,10 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
         return Mono.defer(() -> {
             var previous = this.prompts.put(promptSpecification.prompt().name(), promptSpecification);
             if (previous != null) {
-                logger.warn("Replace existing Prompt with name '{}'", promptSpecification.prompt().name());
+                log.warn("Replace existing Prompt with name '{}'", promptSpecification.prompt().name());
             }
             else {
-                logger.debug("Added prompt handler: {}", promptSpecification.prompt().name());
+                log.debug("Added prompt handler: {}", promptSpecification.prompt().name());
             }
             if (this.serverCapabilities.prompts().listChanged()) {
                 return this.notifyPromptsListChanged();
@@ -522,14 +522,14 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
             McpServerFeatures.AsyncPromptSpecification removed = this.prompts.remove(promptName);
 
             if (removed != null) {
-                logger.debug("Removed prompt handler: {}", promptName);
+                log.debug("Removed prompt handler: {}", promptName);
                 if (this.serverCapabilities.prompts().listChanged()) {
                     return this.notifyPromptsListChanged();
                 }
                 return Mono.empty();
             }
             else {
-                logger.warn("Ignore as a Prompt with name '{}' not found", promptName);
+                log.warn("Ignore as a Prompt with name '{}' not found", promptName);
             }
             return Mono.empty();
         });
@@ -639,7 +639,7 @@ public class GatewayMcpAsyncServer extends McpAsyncServer {
                         .findFirst()
                         .isEmpty()) {
 
-                    logger.warn("Argument not found: {} in prompt: {}", argumentName, promptReference.name());
+                    log.warn("Argument not found: {} in prompt: {}", argumentName, promptReference.name());
 
                     return EMPTY_COMPLETION_RESULT;
                 }

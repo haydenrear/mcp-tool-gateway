@@ -191,8 +191,8 @@ public class ToolGatewayConfig {
     @SneakyThrows
     @Bean
     @Profile({"rollback-tests"})
-    public StdioServerTransportProvider transportProvider(McpJsonMapper objectMapper,
-                                                          WritableInput writableInput) {
+    public StdioServerTransportProvider rollbackTestStdioTransportProvider(McpJsonMapper objectMapper,
+                                                              WritableInput writableInput) {
 
         return new StdioServerTransportProvider(objectMapper, writableInput.input(), new OutputStream() {
             @Override
@@ -219,7 +219,8 @@ public class ToolGatewayConfig {
 
     @Bean
     @ConditionalOnProperty(name = "spring.ai.mcp.server.stdio", havingValue = "false")
-    public WebMvcStreamableServerTransportProvider httpProvider(
+    @Primary
+    public McpStreamableServerTransportProvider httpTransportProvider(
             McpJsonMapper om, McpServerProperties serverProperties) {
         return WebMvcStreamableServerTransportProvider.builder()
                 .jsonMapper(om)
@@ -242,7 +243,7 @@ public class ToolGatewayConfig {
     @SneakyThrows
     @Bean("mcpSyncServer")
     @Primary
-    public McpSyncServer mcpSyncServer(McpServerTransportProviderBase transportProvider,
+    public McpSyncServer mcpSyncServer(McpServerTransportProviderBase httpTransportProvider,
                                                   McpSchema.ServerCapabilities.Builder capabilitiesBuilder,
                                                   McpServerProperties serverProperties,
                                                   ObjectMapper objectMapper,
@@ -260,11 +261,11 @@ public class ToolGatewayConfig {
                 serverProperties.getVersion());
 
         GatewayMcpServer.SyncSpecification<?> serverBuilder;
-        if (transportProvider instanceof McpStreamableServerTransportProvider) {
-            serverBuilder = GatewayMcpServer.sync((McpStreamableServerTransportProvider) transportProvider);
+        if (httpTransportProvider instanceof McpStreamableServerTransportProvider) {
+            serverBuilder = GatewayMcpServer.sync((McpStreamableServerTransportProvider) httpTransportProvider);
         }
         else {
-            serverBuilder = GatewayMcpServer.sync((McpServerTransportProvider) transportProvider);
+            serverBuilder = GatewayMcpServer.sync((McpServerTransportProvider) httpTransportProvider);
         }
         serverBuilder.serverInfo(serverInfo);
 
