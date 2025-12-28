@@ -11,8 +11,8 @@ gateway:
   mcp-http-servers-json-location: file:{{BUILD_DIR}}/resources/main/http-mcp-servers/servers-ide.json
   enable-redeployable: false
   deployable-mcp-servers:
-    agent-tools:
-      name: agent-tools
+    hindsight:
+      name: hindsight
       stdio: false
 
 server.port: 8081
@@ -50,6 +50,6 @@ spring:
     vectorstore.type: none
     mcp:
       server:
-        stdio: true
+        stdio: false
   main:
     web-application-type: none

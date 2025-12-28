@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "agent-tools": {
-      "url": "http://localhost:8080/mcp",
+    "hindsight": {
+      "url": "http://localhost:8888",
       "endpoint": "/mcp"
     }
   }
