@@ -73,18 +73,18 @@ tasks.register<Copy>("copyTestMcpServer") {
     rename { "test-mcp-server.jar" }
 }
 
-tasks.register<Copy>("copyCommitDiffCtxMcp") {
-    doFirst {
-        delete(file(projDir).resolve("ctx_bin/commit-diff-context-mcp.jar"))
-    }
-
-    dependsOn(project(":commit-diff-context-mcp").tasks.named("bootJar"))
-    val sourcePaths = file(project(":commit-diff-context-mcp").layout.buildDirectory).resolve("libs/commit-diff-context-mcp.jar")
-    from(sourcePaths)
-    into(file(projDir).resolve("ctx_bin"))
-    // Optionally rename it to a fixed name
-    rename { "commit-diff-context-mcp.jar" }
-}
+//tasks.register<Copy>("copyCommitDiffCtxMcp") {
+//    doFirst {
+//        delete(file(projDir).resolve("ctx_bin/commit-diff-context-mcp.jar"))
+//    }
+//
+//    dependsOn(project(":commit-diff-context-mcp").tasks.named("bootJar"))
+//    val sourcePaths = file(project(":commit-diff-context-mcp").layout.buildDirectory).resolve("libs/commit-diff-context-mcp.jar")
+//    from(sourcePaths)
+//    into(file(projDir).resolve("ctx_bin"))
+//    // Optionally rename it to a fixed name
+//    rename { "commit-diff-context-mcp.jar" }
+//}
 
 
 if (enableDocker && buildMcpToolGateway) {
@@ -114,7 +114,9 @@ if (enableDocker && buildMcpToolGateway) {
 
 tasks.compileJava {
     dependsOn(
-        "copyTestMcpServer", "copyCommitDiffCtxMcp", "processYmlFiles")
+        "copyTestMcpServer",
+//        "copyCommitDiffCtxMcp",
+        "processYmlFiles")
     finalizedBy("processMcpServerJson")
 }
 
