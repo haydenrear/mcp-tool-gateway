@@ -40,8 +40,17 @@ wrapDocker {
     ctx = arrayOf
 }
 
+var utilLib = ""
+
+if (project.parent?.name?.contains("multi_agent_ide_parent") ?: false) {
+    utilLib = ":multi_agent_ide_java_parent"
+} else {
+    utilLib = ""
+}
+
 dependencies {
-    implementation(project(":utilitymodule"))
+    implementation(project("${utilLib}:utilitymodule"))
+    implementation(project("${utilLib}:acp-cdc-ai"))
     implementation(project(":graphql"))
     implementation(project(":commit-diff-model"))
     implementation(project(":commit-diff-context"))
@@ -50,7 +59,6 @@ dependencies {
     implementation(project(":jpa-persistence"))
     implementation(project(":persistence"))
     implementation(project(":runner_code"))
-    implementation(project(":acp-cdc-ai"))
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")
