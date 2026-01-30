@@ -8,7 +8,6 @@ import com.hayden.mcptoolgateway.kubernetes.UserMetadataRepository;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.DelegatingHttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.servlet.FilterChain;

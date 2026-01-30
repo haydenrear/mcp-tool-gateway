@@ -12,7 +12,7 @@ import com.hayden.mcptoolgateway.tool.*;
 import com.hayden.mcptoolgateway.tool.tool_state.McpServerToolStates;
 import com.hayden.mcptoolgateway.tool.tool_state.McpSyncServerDelegate;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
-import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import com.hayden.acp_cdc_ai.mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.result.Result;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;

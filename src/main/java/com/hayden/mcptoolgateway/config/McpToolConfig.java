@@ -2,7 +2,7 @@ package com.hayden.mcptoolgateway.config;
 
 import com.hayden.commitdiffmodel.config.GraphQlProps;
 import com.hayden.utilitymodule.concurrent.striped.StripedLockAspect;
-import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import com.hayden.acp_cdc_ai.mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.schema.DelegatingSchemaReplacer;
 import com.hayden.utilitymodule.schema.SpecialJsonSchemaGenerator;
 import com.hayden.utilitymodule.schema.SpecialMethodToolCallbackProviderFactory;

@@ -21,11 +21,8 @@ import java.net.http.HttpRequest;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import static io.modelcontextprotocol.spec.ProtocolVersions.MCP_2025_03_26;
 
 public class AuthAwareHttpStreamableClientTransport implements io.modelcontextprotocol.spec.McpClientTransport {
 

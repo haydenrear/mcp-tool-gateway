@@ -50,6 +50,7 @@ dependencies {
     implementation(project(":jpa-persistence"))
     implementation(project(":persistence"))
     implementation(project(":runner_code"))
+    implementation(project(":acp-cdc-ai"))
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")

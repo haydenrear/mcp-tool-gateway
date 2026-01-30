@@ -1,7 +1,7 @@
 package com.hayden.mcptoolgateway;
 
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
-import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import com.hayden.acp_cdc_ai.mcp.DynamicMcpToolCallbackProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

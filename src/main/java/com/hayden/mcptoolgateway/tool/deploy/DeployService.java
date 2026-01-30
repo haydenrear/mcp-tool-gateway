@@ -8,7 +8,7 @@ import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter.ToolDe
 import com.hayden.mcptoolgateway.tool.ToolDecoratorService;
 import com.hayden.mcptoolgateway.tool.ToolModels;
 import com.hayden.mcptoolgateway.tool.tool_state.ToolDecoratorInterpreter;
-import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import com.hayden.acp_cdc_ai.mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.free.Free;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

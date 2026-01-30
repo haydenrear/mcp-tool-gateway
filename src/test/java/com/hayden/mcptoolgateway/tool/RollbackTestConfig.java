@@ -2,7 +2,7 @@ package com.hayden.mcptoolgateway.tool;
 
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.tool_state.McpSyncServerDelegate;
-import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import com.hayden.acp_cdc_ai.mcp.DynamicMcpToolCallbackProvider;
 import io.modelcontextprotocol.client.McpSyncClient;
 import org.mockito.Mockito;
 import org.springframework.context.annotation.Bean;

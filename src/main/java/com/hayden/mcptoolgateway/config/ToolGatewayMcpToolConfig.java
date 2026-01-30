@@ -1,7 +1,7 @@
 package com.hayden.mcptoolgateway.config;
 
 import com.hayden.commitdiffmodel.config.DisableGraphQl;
-import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import com.hayden.acp_cdc_ai.mcp.DynamicMcpToolCallbackProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;

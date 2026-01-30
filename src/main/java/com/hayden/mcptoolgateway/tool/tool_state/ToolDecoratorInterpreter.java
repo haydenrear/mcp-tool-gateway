@@ -9,7 +9,7 @@ import com.hayden.mcptoolgateway.tool.deploy.DeployService;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RedeployFunction;
 import com.hayden.mcptoolgateway.tool.deploy.fn.RollbackFunction;
 import com.hayden.utilitymodule.MapFunctions;
-import com.hayden.utilitymodule.delegate_mcp.DynamicMcpToolCallbackProvider;
+import com.hayden.acp_cdc_ai.mcp.DynamicMcpToolCallbackProvider;
 import com.hayden.utilitymodule.free.Effect;
 import com.hayden.utilitymodule.free.Free;
 import com.hayden.utilitymodule.free.Interpreter;
