@@ -125,12 +125,18 @@ tasks.compileJava {
     dependsOn(
         "copyTestMcpServer",
 //        "copyCommitDiffCtxMcp",
-        "processYmlFiles")
+        "processYmlFiles",
+        "processXmlFiles",
+    )
     finalizedBy("processMcpServerJson")
 }
 
 tasks.test {
-    dependsOn("processMcpServerJson", "processYmlFiles")
+    dependsOn(
+        "processMcpServerJson",
+        "processYmlFiles",
+        "processXmlFiles"
+    )
 }
 
 

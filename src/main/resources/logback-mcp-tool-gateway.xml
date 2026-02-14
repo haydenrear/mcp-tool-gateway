@@ -1,6 +1,6 @@
 <configuration>
     <appender name="MCP_TOOL_GATEWAY" class="ch.qos.logback.core.FileAppender">
-        <file>/Users/hayde/IdeaProjects/multi_agent_ide_parent/mcp-tool-gateway.log</file>
+        <file>{{PARENT_DIR}}/mcp-tool-gateway.log</file>
         <append>false</append>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
